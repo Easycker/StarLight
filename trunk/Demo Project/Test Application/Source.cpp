@@ -27,7 +27,7 @@ using namespace Render;
 
 Mouse mouse ( 0.005F );
 
-Keyboard keyboard ( 0.02F );
+Keyboard keyboard ( 0.2F );
 
 Camera * camera = NULL;
 Texture2D* openGLTexture = NULL;
@@ -102,9 +102,9 @@ void Draw ( int width, int height, float time )
 	glEnd ( );
 	openGLTexture->Unbind();
 }
-char * LoadFile ( const char * path, int *outLength = NULL )
+char * LoadFile ( const char * path, long *outLength = NULL )
 {
-	ifstream file ( path );
+	ifstream file ( path , ios_base::binary );
 
 	//-----------------------------------------------------------------
 
@@ -121,7 +121,7 @@ char * LoadFile ( const char * path, int *outLength = NULL )
 
 	if (outLength)
 	{
-		*outLength = static_cast<int>(length);
+		*outLength = static_cast<long>(length);
 	}
 
 	file.seekg ( 0, ios :: beg );
@@ -137,14 +137,16 @@ char * LoadFile ( const char * path, int *outLength = NULL )
 
 	char * source = new char [length + 1];
 
-	unsigned long i = 0;
+	file.read( source , length );
 
-	while ( file )
-	{
-		source [i++] = file.get ( );
-	}
+//	unsigned long i = 0;
 
-	source [i - 1] = 0;
+//	while ( file )
+//	{
+//		source [i++] = file.get ( );
+//	}
+
+	source[ length ] = 0;
 
 	return source;
 }
@@ -604,13 +606,14 @@ cl_int StartKernels ( void )
 
 	Vector2D tempVector2D;
 	tempVector2D = camera->GetScreenScale();
-	temp[0] = tempVector.X;
-	temp[1] = tempVector.Y;
+	cl_float2 temp2;
+	temp2[0] = tempVector2D.X;
+	temp2[1] = tempVector2D.Y;
 	status = clSetKernelArg (
 		kernel                   /* kernel */,
 		5                        /* arg_index */,
 		sizeof ( cl_float2 )     /* arg_size */,
-		( void * ) temp			/* arg_value */ );
+		( void * )temp2			/* arg_value */ );
 
 	if ( status != CL_SUCCESS )
 	{
@@ -735,15 +738,14 @@ int main ( void )
 	}
 	openGLTexture->Update();
 
-	SetupOpenCL(CL_DEVICE_TYPE_GPU);
-	SetupKernels();
-
-	//---------------------------------------------------------------------------------------------
-	
-	camera = new Camera ( Vector3D ( -30.0F, 10.0F, -30.0F )       /* default position */,
+	camera = new Camera ( Vector3D ( -10.0F, 0.0F, -10.0F )       /* default position */,
 		                  Vector3D ( 0.0F, -ONEPI / 4.0F, 0.0F )   /* default orientation */ );
 
 	camera->SetFrustum ( );
+	camera->SetViewport( width , height );
+
+	SetupOpenCL(CL_DEVICE_TYPE_GPU);
+	SetupKernels();
 
 	//---------------------------------------------------------------------------------------------
 

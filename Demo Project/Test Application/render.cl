@@ -1,8 +1,6 @@
 #define DELTA 0.3f
 
-float Radius = 5.5f;
-
-#define USE_BOX_
+#define USE_BOX
 
 typedef struct _SCamera
 {
@@ -141,8 +139,8 @@ SRay GenerateRay ( SCamera camera, int2 TexCoord )
 	SRay ray;
 	ray.Origin = camera.Position;
 	ray.Origin.w = 0;
-	ray.Direction = normalize ( direction );
 	ray.Direction.w = 0;
+	ray.Direction = normalize ( direction );
 	return ray;
 }
 
@@ -179,7 +177,9 @@ float4 Raytrace ( SRay ray, SCamera Camera )
 
 	float4 BoxMaximum = (float4) ( 5.0F, 5.0F, 5.0F, 0.0F );
 
-	float4 result = (float4) ( 0.0F, 0.0F, 0.0F, 1.0F );
+	float Radius = 5.5f;
+
+	float4 result = (float4) ( 0.0F, 0.0F, 0.0F, 0.0F );
     
 	float start, final, time;
 
@@ -193,8 +193,7 @@ float4 Raytrace ( SRay ray, SCamera Camera )
 
 #endif
 	{
-		
-		if ( IntersectSurface ( ray, start, final, &time ) )
+		if ( IntersectSurface ( ray, start, final, &time ))
 		{
 			
 			float4 point = ray.Origin + ray.Direction * time;

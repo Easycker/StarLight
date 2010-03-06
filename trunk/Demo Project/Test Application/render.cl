@@ -2,19 +2,6 @@
 
 #define USE_BOX
 
-typedef struct _SCamera
-{
-	float4 Position;
-	
-	float4 Side;
-	
-	float4 Up;
-	
-	float4 View;
-	
-	float2 Scale;
-}SCamera;
-
 typedef struct _SRay
 {
 	float4 Origin;
@@ -110,7 +97,7 @@ bool IntersectSurface ( SRay ray, float start, float final, float* val)
 
 	//-----------------------------------------------------------------------------------
 
-	for ( float i = 0.0f; i < (float) ( INTERVALS ); i++ )
+	for ( int i = 0; i < INTERVALS; i++ )
 	{
 		time += step;
 
@@ -130,14 +117,19 @@ bool IntersectSurface ( SRay ray, float start, float final, float* val)
 
 	return false;
 }
-SRay GenerateRay ( SCamera camera, int2 TexCoord )
+SRay GenerateRay ( 	__constant float4 Position,
+				    __constant float4 Side,
+				    __constant float4 Up,
+				    __constant float4 View,
+				    __constant float2 Scale,
+					int2 TexCoord )
 {
-	float2 coords = (float2)((float)TexCoord.x/256.0f - 1.0f, (float)TexCoord.y/256.0f - 1.0f) * camera.Scale;
+	float2 coords = (float2)((float)TexCoord.x/256.0f - 1.0f, (float)TexCoord.y/256.0f - 1.0f) * Scale;
 	
-	float4 direction = camera.View - camera.Side * coords.x + camera.Up * coords.y;
+	float4 direction = View - Side * coords.x + Up * coords.y;
    
 	SRay ray;
-	ray.Origin = camera.Position;
+	ray.Origin = Position;
 	ray.Origin.w = 0;
 	ray.Direction.w = 0;
 	ray.Direction = normalize ( direction );
@@ -156,11 +148,11 @@ float4 reflect(float4 vec, float4 normal)
 {
 	return vec - normal * 2 * dot(vec, normal);
 }
-float4 Phong ( float4 point, float4 normal, float4 color, SCamera Camera )
+float4 Phong ( float4 point, float4 normal, float4 color, __constant float4 Position)
 {
 	float4 Unit = (float4) ( 1.0F, 1.0F, 1.0F, 1.0F );
 
-	float4 light = normalize ( Camera.Position - point );
+	float4 light = normalize ( Position - point );
    
 	float diffuse = fabs ( dot ( light, normal ) );
 
@@ -171,7 +163,7 @@ float4 Phong ( float4 point, float4 normal, float4 color, SCamera Camera )
 	return K_A * Unit + diffuse * ( K_D * color + K_S * specular * Unit );
 }
 
-float4 Raytrace ( SRay ray, SCamera Camera )
+float4 Raytrace ( SRay ray, __constant float4 Position)
 {
 	float4 BoxMinimum = (float4) ( -5.0F, -5.0F, -5.0F, 0.0F );
 
@@ -195,14 +187,13 @@ float4 Raytrace ( SRay ray, SCamera Camera )
 	{
 		if ( IntersectSurface ( ray, start, final, &time ))
 		{
-			
 			float4 point = ray.Origin + ray.Direction * time;
 					
 			float4 normal = CalcNormal ( point );
 
 			float4 color = ( point - BoxMinimum ) / ( BoxMaximum - BoxMinimum );
 
-			result = Phong ( point, normal, color, Camera );
+			result = Phong ( point, normal, color, Position);
 		}
 	}
 	return result;
@@ -216,17 +207,14 @@ __kernel void main (__global float4 * texture,
 				    __constant float4 View,
 				    __constant float2 Scale)
 {
-	SCamera Camera;
-
-	Camera.Position		= Position;
-	Camera.Side			= Side;
-	Camera.Up			= Up;
-	Camera.View			= View;
-	Camera.Scale		= Scale;
-
 	__private int2 TexCoord = (int2)(get_global_id(0), get_global_id(1));
 
-	__private SRay ray = GenerateRay ( Camera, TexCoord );
+	__private SRay ray = GenerateRay (Position,
+									  Side,
+									  Up,
+									  View,
+									  Scale,
+									  TexCoord );
 
-	texture[512*TexCoord.y + TexCoord.x] = Raytrace ( ray, Camera );
+	texture[512*TexCoord.y + TexCoord.x] = Raytrace ( ray, Position);
 }

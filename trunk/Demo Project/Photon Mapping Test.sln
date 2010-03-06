@@ -9,26 +9,40 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Base Render Library", "Base
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Demo Suite", "Demo Suite", "{772C36A4-1C1F-4773-ACAA-CBD9DA8639E6}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Fracture Test", "Test Application\Test Application.vcproj", "{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Photon Mappinng Test", "Test Application\Test Application.vcproj", "{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Win32 = Debug|Win32
-		Release|Win32 = Release|Win32
+		Debug (AMD)|Win32 = Debug (AMD)|Win32
+		Debug (NVIDIA)|Win32 = Debug (NVIDIA)|Win32
+		Release (AMD)|Win32 = Release (AMD)|Win32
+		Release (NVIDIA)|Win32 = Release (NVIDIA)|Win32
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Debug|Win32.ActiveCfg = Debug|Win32
-		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Debug|Win32.Build.0 = Debug|Win32
-		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Release|Win32.ActiveCfg = Release|Win32
-		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Release|Win32.Build.0 = Release|Win32
-		{FC467132-3751-4CAA-AE40-128D83836414}.Debug|Win32.ActiveCfg = Debug|Win32
-		{FC467132-3751-4CAA-AE40-128D83836414}.Debug|Win32.Build.0 = Debug|Win32
-		{FC467132-3751-4CAA-AE40-128D83836414}.Release|Win32.ActiveCfg = Release|Win32
-		{FC467132-3751-4CAA-AE40-128D83836414}.Release|Win32.Build.0 = Release|Win32
-		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Debug|Win32.ActiveCfg = Debug|Win32
-		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Debug|Win32.Build.0 = Debug|Win32
-		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Release|Win32.ActiveCfg = Release|Win32
-		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Release|Win32.Build.0 = Release|Win32
+		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Debug (AMD)|Win32.ActiveCfg = Debug|Win32
+		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Debug (AMD)|Win32.Build.0 = Debug|Win32
+		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Debug (NVIDIA)|Win32.ActiveCfg = Debug|Win32
+		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Debug (NVIDIA)|Win32.Build.0 = Debug|Win32
+		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Release (AMD)|Win32.ActiveCfg = Release|Win32
+		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Release (AMD)|Win32.Build.0 = Release|Win32
+		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Release (NVIDIA)|Win32.ActiveCfg = Release|Win32
+		{F1AE1E13-6A0F-40F0-955A-D5B2ACFDFE31}.Release (NVIDIA)|Win32.Build.0 = Release|Win32
+		{FC467132-3751-4CAA-AE40-128D83836414}.Debug (AMD)|Win32.ActiveCfg = Debug|Win32
+		{FC467132-3751-4CAA-AE40-128D83836414}.Debug (AMD)|Win32.Build.0 = Debug|Win32
+		{FC467132-3751-4CAA-AE40-128D83836414}.Debug (NVIDIA)|Win32.ActiveCfg = Debug|Win32
+		{FC467132-3751-4CAA-AE40-128D83836414}.Debug (NVIDIA)|Win32.Build.0 = Debug|Win32
+		{FC467132-3751-4CAA-AE40-128D83836414}.Release (AMD)|Win32.ActiveCfg = Release|Win32
+		{FC467132-3751-4CAA-AE40-128D83836414}.Release (AMD)|Win32.Build.0 = Release|Win32
+		{FC467132-3751-4CAA-AE40-128D83836414}.Release (NVIDIA)|Win32.ActiveCfg = Release|Win32
+		{FC467132-3751-4CAA-AE40-128D83836414}.Release (NVIDIA)|Win32.Build.0 = Release|Win32
+		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Debug (AMD)|Win32.ActiveCfg = Debug (AMD)|Win32
+		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Debug (AMD)|Win32.Build.0 = Debug (AMD)|Win32
+		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Debug (NVIDIA)|Win32.ActiveCfg = Debug (NVIDIA)|Win32
+		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Debug (NVIDIA)|Win32.Build.0 = Debug (NVIDIA)|Win32
+		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Release (AMD)|Win32.ActiveCfg = Release (AMD)|Win32
+		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Release (AMD)|Win32.Build.0 = Release (AMD)|Win32
+		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Release (NVIDIA)|Win32.ActiveCfg = Release (NVIDIA)|Win32
+		{CF7C57F1-8193-4E8C-995C-1C4D95DE5222}.Release (NVIDIA)|Win32.Build.0 = Release (NVIDIA)|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

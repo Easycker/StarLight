@@ -89,18 +89,14 @@ void KeyButton ( int key, int state )
 
 void Draw ( int width, int height, float time )
 {	
-	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	glEnable (GL_TEXTURE_2D);
-	openGLTexture->Bind();
 	glBegin ( GL_QUADS );
 
 		glTexCoord2f(0.0f, 0.0f); glVertex2f ( -1.0F, -1.0F );
 		glTexCoord2f(0.0f, 1.0f); glVertex2f ( -1.0F,  1.0F );
 		glTexCoord2f(1.0f, 1.0f); glVertex2f (  1.0F,  1.0F );   
 		glTexCoord2f(1.0f, 0.0f); glVertex2f (  1.0F, -1.0F );
+
 	glEnd ( );
-	openGLTexture->Unbind();
 }
 char * LoadFile ( const char * path, long *outLength = NULL )
 {
@@ -353,9 +349,9 @@ cl_int SetupOpenCL ( cl_int deviceType )
 
 	clMemTexture = clCreateBuffer (
 		context                                   /* context */,
-		CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR   /* flags */,
+		CL_MEM_WRITE_ONLY    /* flags */,
 		width * height * sizeof ( cl_float4 )       /* size */,
-		*(openGLTexture->Data)                               /* host_ptr */,
+		NULL                               /* host_ptr */,
 		&status                                   /* errcode_ret */ );
 
 	if ( status != CL_SUCCESS )
@@ -455,7 +451,37 @@ cl_int SetupOpenCL ( cl_int deviceType )
 
 	return status;
 }
+cl_int ReleaseOpenCL ( void )
+{
+	cl_int result;
+	result = clReleaseKernel(kernel);
+	if(result != CL_SUCCESS)
+	{
+		return result;
+	}
+	result = clReleaseProgram(program);
+	if(result != CL_SUCCESS)
+	{
+		return result;
+	}
+	result = clReleaseMemObject(clMemTexture);
+	if(result != CL_SUCCESS)
+	{
+		return result;
+	}
+	result = clReleaseCommandQueue(commandQueue);
+	if(result != CL_SUCCESS)
+	{
+		return result;
+	}
+	result = clReleaseContext(context);
+	if(result != CL_SUCCESS)
+	{
+		return result;
+	}
+	return result;
 
+}
 cl_int SetupKernels ( void )
 {
 	cl_int status = CL_SUCCESS;
@@ -532,7 +558,7 @@ cl_int StartKernels ( void )
 
 	size_t globalThreads [] = { width, height };
 
-	size_t localThreads [] = { 8, 8 };
+	size_t localThreads [] = { 1, 64 };
 
 	if ( localThreads [0] > maxWorkItemSizes [0] || localThreads [0] > maxWorkGroupSize )
 	{
@@ -641,7 +667,7 @@ cl_int StartKernels ( void )
 	{
 		cout << "ERROR! clFinish failed" << endl; exit ( -1 );
 	}
-	/* Enqueue read buffer */
+	//* Enqueue read buffer */
 
 	status = clEnqueueReadBuffer (
 		commandQueue                          /* command_queue */,
@@ -718,6 +744,8 @@ int main ( void )
 
 	glfwSetKeyCallback ( KeyButton );
 
+	glEnable (GL_TEXTURE_2D);
+
 	//---------------------------------------------------------------------------------------------
 
 	TextureData2D textureData(width, height, 4);
@@ -786,9 +814,6 @@ int main ( void )
 
 		//-----------------------------------------------------------------------------------------
 
-		/*position.X = 5.0F * sinf ( 6.0F * time );
-		position.Z = 5.0F * cosf ( 6.0F * time );*/
-
 		mouse.Apply ( camera );
 		keyboard.Apply ( camera );
 		StartKernels();
@@ -802,6 +827,6 @@ int main ( void )
 
 		running = !glfwGetKey ( GLFW_KEY_ESC ) && glfwGetWindowParam ( GLFW_OPENED );
 	}
-
+	ReleaseOpenCL();
 	glfwTerminate ( ); exit ( 0 );
 }

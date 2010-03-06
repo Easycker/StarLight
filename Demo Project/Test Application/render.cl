@@ -1,6 +1,6 @@
 #define DELTA 0.3f
 
-#define USE_BOX
+#define USE_BOX_
 
 typedef struct _SRay
 {

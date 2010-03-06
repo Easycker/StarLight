@@ -38,8 +38,8 @@ int width = 512, height = 512, mode = GLFW_WINDOW;
 // Sphere position (only for test)
 
 Vector3D position = Vector3D :: Zero;
-size_t groupSizeX = 8;										/* Work-Group size ( for CPU = 1 ) */
-size_t groupSizeY = 8;
+size_t groupSizeX = 1;										/* Work-Group size ( for CPU = 1 ) */
+size_t groupSizeY = 64;
 //-----------------------------------------------------------------------------------------------------------
 
 cl_mem clMemTexture;	
@@ -558,7 +558,7 @@ cl_int StartKernels ( void )
 
 	size_t globalThreads [] = { width, height };
 
-	size_t localThreads [] = { 1, 64 };
+	size_t localThreads [] = { groupSizeX, groupSizeY };
 
 	if ( localThreads [0] > maxWorkItemSizes [0] || localThreads [0] > maxWorkGroupSize )
 	{

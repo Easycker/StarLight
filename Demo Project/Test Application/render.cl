@@ -52,10 +52,10 @@ float CalcFunction ( float4 point )
 {
 	float x = point.x, y = point.y, z = point.z, T = 1.6180339887f;
 
-	return 2.0f - cos ( x + T * y ) - cos ( x - T * y ) - cos ( y + T * z ) -
-		         cos ( y - T * z ) - cos ( z - T * x ) - cos ( z + T * x );
+	return 2.0f - native_cos ( x + T * y ) - native_cos ( x - T * y ) - native_cos ( y + T * z ) -
+		         native_cos ( y - T * z ) - native_cos ( z - T * x ) - native_cos ( z + T * x );
 
-	//return sin ( x ) + sin ( y ) + sin ( z );
+//	return native_sin ( x ) + native_sin ( y ) + native_sin ( z );
 }
 #define STEP  0.01f
 
@@ -137,10 +137,12 @@ SRay GenerateRay ( 	__constant float4 Position,
 }
 
 #define K_A 0.2F
+#define V_A (float4)( 0.2F, 0.2F, 0.2F, 0.2F )
 
 #define K_D 0.8F
 
 #define K_S 0.8F
+#define V_S (float4)( 0.8F , 0.8F , 0.8F , 0.8F )
 
 #define P 64.0F
 
@@ -158,9 +160,16 @@ float4 Phong ( float4 point, float4 normal, float4 color, __constant float4 Posi
 
 	float4 reflectVec = reflect ( -light, normal );
 
-	float specular = pow ( fabs ( dot ( reflectVec, light ) ), P );
+	float specular_inner = fabs ( dot ( reflectVec, light ) );
 
-	return K_A * Unit + diffuse * ( K_D * color + K_S * specular * Unit );
+	float specular = exp( log( specular_inner ) * P );
+
+	specular *= K_S;
+	diffuse *= K_D;
+	return V_A + diffuse *( color + (float4)( specular, specular, specular, specular ) );
+
+//	return V_A + diffuse * ( K_D * color + V_S * specular );
+//	return (float4) ( 1.0F, 1.0F, 1.0F, 1.0F );
 }
 
 float4 Raytrace ( SRay ray, __constant float4 Position)

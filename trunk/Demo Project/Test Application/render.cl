@@ -15,13 +15,13 @@ bool IntersectBox ( SRay ray, float4 minimum, float4 maximum, float* start, floa
 	
 	float4 OMIN = ( maximum - ray.Origin ) / ray.Direction;
 	
-	float4 MAX = fmax ( OMAX, OMIN );
+	float4 MAX = max ( OMAX, OMIN );
 	
-	float4 MIN = fmin ( OMAX, OMIN );
+	float4 MIN = min ( OMAX, OMIN );
 	
-	*final = fmin ( MAX.x, fmin ( MAX.y, MAX.z ) );
+	*final = min ( MAX.x, min ( MAX.y, MAX.z ) );
 	
-	*start = fmax ( fmax ( MIN.x, 0.0F), fmax ( MIN.y, MIN.z ) );	
+	*start = max ( max ( MIN.x, 0.0F), max ( MIN.y, MIN.z ) );	
 	
 	return *final >*start;
 }
@@ -137,12 +137,10 @@ SRay GenerateRay ( 	__constant float4 Position,
 }
 
 #define K_A 0.2F
-#define V_A (float4)( 0.2F, 0.2F, 0.2F, 0.2F )
 
 #define K_D 0.8F
 
 #define K_S 0.8F
-#define V_S (float4)( 0.8F , 0.8F , 0.8F , 0.8F )
 
 #define P 64.0F
 
@@ -160,16 +158,9 @@ float4 Phong ( float4 point, float4 normal, float4 color, __constant float4 Posi
 
 	float4 reflectVec = reflect ( -light, normal );
 
-	float specular_inner = fabs ( dot ( reflectVec, light ) );
+	float specular = native_powr ( fabs ( dot ( reflectVec, light ) ), P );
 
-	float specular = exp( log( specular_inner ) * P );
-
-	specular *= K_S;
-	diffuse *= K_D;
-	return V_A + diffuse *( color + (float4)( specular, specular, specular, specular ) );
-
-//	return V_A + diffuse * ( K_D * color + V_S * specular );
-//	return (float4) ( 1.0F, 1.0F, 1.0F, 1.0F );
+	return K_A * Unit + diffuse * ( K_D * color + K_S * specular * Unit );
 }
 
 float4 Raytrace ( SRay ray, __constant float4 Position)
@@ -200,7 +191,7 @@ float4 Raytrace ( SRay ray, __constant float4 Position)
 					
 			float4 normal = CalcNormal ( point );
 
-			float4 color = ( point - BoxMinimum ) / ( BoxMaximum - BoxMinimum );
+			float4 color = native_divide( point - BoxMinimum , BoxMaximum - BoxMinimum );
 
 			result = Phong ( point, normal, color, Position);
 		}

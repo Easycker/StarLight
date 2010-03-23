@@ -7,13 +7,13 @@ typedef struct _SRay
 	float4 Origin;
 	
 	float4 Direction;
-}SRay;
+}SRay, *PSRay;
 
-bool IntersectBox ( SRay ray, float4 minimum, float4 maximum, float* start, float* final )
+bool IntersectBox ( PSRay pRay, float4 minimum, float4 maximum, float* start, float* final )
 {
-	float4 OMAX = ( minimum - ray.Origin ) / ray.Direction;
+	float4 OMAX = ( minimum - pRay->Origin ) / pRay->Direction;
 	
-	float4 OMIN = ( maximum - ray.Origin ) / ray.Direction;
+	float4 OMIN = ( maximum - pRay->Origin ) / pRay->Direction;
 	
 	float4 MAX = max ( OMAX, OMIN );
 	
@@ -25,13 +25,13 @@ bool IntersectBox ( SRay ray, float4 minimum, float4 maximum, float* start, floa
 	
 	return *final >*start;
 }
-bool IntersectSphere ( SRay ray, float radius, float* start, float* final )
+bool IntersectSphere ( PSRay pRay, float radius, float* start, float* final )
 {
-	float A = dot ( ray.Direction, ray.Direction );
+	float A = dot ( pRay->Direction, pRay->Direction );
 
-	float B = dot ( ray.Direction, ray.Origin );
+	float B = dot ( pRay->Direction, pRay->Origin );
 
-	float C = dot ( ray.Origin, ray.Origin ) - radius * radius;
+	float C = dot ( pRay->Origin, pRay->Origin ) - radius * radius;
 
 	float D = B * B - A * C;
 	
@@ -81,7 +81,7 @@ float4 CalcNormal ( float4 point )
 
 #define INTERVALS 100
 
-bool IntersectSurface ( SRay ray, float start, float final, float* val)
+bool IntersectSurface ( PSRay pRay, float start, float final, float* val)
 {
 	float step = ( final - start ) / (float) ( INTERVALS );
 
@@ -89,7 +89,7 @@ bool IntersectSurface ( SRay ray, float start, float final, float* val)
 
 	float time = start;
 
-	float4 point = ray.Origin + time * ray.Direction;
+	float4 point = pRay->Origin + time * pRay->Direction;
 
 	//-----------------------------------------------------------------------------------
 
@@ -101,7 +101,7 @@ bool IntersectSurface ( SRay ray, float start, float final, float* val)
 	{
 		time += step;
 
-		point += step * ray.Direction;
+		point += step * pRay->Direction;
 
 		right = CalcFunction ( point );
 		
@@ -117,23 +117,22 @@ bool IntersectSurface ( SRay ray, float start, float final, float* val)
 
 	return false;
 }
-SRay GenerateRay ( 	__constant float4 Position,
-				    __constant float4 Side,
-				    __constant float4 Up,
-				    __constant float4 View,
-				    __constant float2 Scale,
+void GenerateRay (  PSRay pRay,
+				    const float4 Position,
+				    const float4 Side,
+				    const float4 Up,
+				    const float4 View,
+				    const float2 Scale,
 					int2 TexCoord )
 {
 	float2 coords = (float2)((float)TexCoord.x/256.0f - 1.0f, (float)TexCoord.y/256.0f - 1.0f) * Scale;
 	
 	float4 direction = View - Side * coords.x + Up * coords.y;
    
-	SRay ray;
-	ray.Origin = Position;
-	ray.Origin.w = 0;
-	ray.Direction.w = 0;
-	ray.Direction = normalize ( direction );
-	return ray;
+	pRay->Origin = Position;
+	pRay->Origin.w = 0;
+	pRay->Direction.w = 0;
+	pRay->Direction = normalize ( direction );
 }
 
 #define K_A 0.2F
@@ -163,7 +162,7 @@ float4 Phong ( float4 point, float4 normal, float4 color, __constant float4 Posi
 	return K_A * Unit + diffuse * ( K_D * color + K_S * specular * Unit );
 }
 
-float4 Raytrace ( SRay ray, __constant float4 Position)
+float4 Raytrace ( PSRay pRay, const float4 Position)
 {
 	float4 BoxMinimum = (float4) ( -5.0F, -5.0F, -5.0F, 0.0F );
 
@@ -177,17 +176,17 @@ float4 Raytrace ( SRay ray, __constant float4 Position)
 
 #ifdef USE_BOX
 
-	if ( IntersectBox ( ray, BoxMinimum, BoxMaximum, &start, &final ) )
+	if ( IntersectBox ( pRay, BoxMinimum, BoxMaximum, &start, &final ) )
 
 #else
 
-	if ( IntersectSphere ( ray, Radius, &start, &final ) )
+	if ( IntersectSphere ( pRay, Radius, &start, &final ) )
 
 #endif
 	{
-		if ( IntersectSurface ( ray, start, final, &time ))
+		if ( IntersectSurface ( pRay, start, final, &time ))
 		{
-			float4 point = ray.Origin + ray.Direction * time;
+			float4 point = pRay->Origin + pRay->Direction * time;
 					
 			float4 normal = CalcNormal ( point );
 
@@ -201,20 +200,22 @@ float4 Raytrace ( SRay ray, __constant float4 Position)
 
 //OpenCL kernel
 __kernel void main (__global float4 * texture,	
-			        __constant float4 Position,
-				    __constant float4 Side,
-				    __constant float4 Up,
-				    __constant float4 View,
-				    __constant float2 Scale)
+			        const float4 Position,
+				    const float4 Side,
+				    const float4 Up,
+				    const float4 View,
+				    const float2 Scale)
 {
 	__private int2 TexCoord = (int2)(get_global_id(0), get_global_id(1));
 
-	__private SRay ray = GenerateRay (Position,
-									  Side,
-									  Up,
-									  View,
-									  Scale,
-									  TexCoord );
+	__private SRay ray;
+	GenerateRay (&ray,
+      			 Position,
+				 Side,
+				 Up,
+				 View,
+				 Scale,
+				 TexCoord );
 
-	texture[512*TexCoord.y + TexCoord.x] = Raytrace ( ray, Position);
+	texture[512*TexCoord.y + TexCoord.x] = Raytrace ( &ray, Position);
 }

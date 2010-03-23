@@ -1,7 +1,6 @@
 #include <Mouse.h>
 
-#include "CL\cl.h"
-#include "CL\cl_gl.h"
+#include "opencl.h"
 
 #include <Keyboard.h>
 
@@ -567,15 +566,15 @@ cl_int StartKernels ( void )
 
 	cl_float4 temp;
 	Vector3D tempVector = camera->GetPosition();
-	temp[0] = tempVector.X;
-	temp[1] = tempVector.Y;
-	temp[2] = tempVector.Z;
-	temp[3] = 0;
+	temp.s[0] = tempVector.X;
+	temp.s[1] = tempVector.Y;
+	temp.s[2] = tempVector.Z;
+	temp.s[3] = 0;
 	status = clSetKernelArg (
 		kernel                   /* kernel */,
 		1                        /* arg_index */,
 		sizeof ( cl_float4 )        /* arg_size */,
-		( void * ) temp			/* arg_value */ );
+		( void * ) temp.s			/* arg_value */ );
 
 	if ( status != CL_SUCCESS )
 	{
@@ -583,15 +582,15 @@ cl_int StartKernels ( void )
 	}
 
 	tempVector = camera->GetSide();
-	temp[0] = tempVector.X;
-	temp[1] = tempVector.Y;
-	temp[2] = tempVector.Z;
-	temp[3] = 0;
+	temp.s[0] = tempVector.X;
+	temp.s[1] = tempVector.Y;
+	temp.s[2] = tempVector.Z;
+	temp.s[3] = 0;
 	status = clSetKernelArg (
 		kernel                   /* kernel */,
 		2                        /* arg_index */,
 		sizeof ( cl_float4 )        /* arg_size */,
-		( void * ) temp /* arg_value */ );
+		( void * ) temp.s /* arg_value */ );
 
 	if ( status != CL_SUCCESS )
 	{
@@ -599,15 +598,15 @@ cl_int StartKernels ( void )
 	}
 
 	tempVector = camera->GetUp();
-	temp[0] = tempVector.X;
-	temp[1] = tempVector.Y;
-	temp[2] = tempVector.Z;
-	temp[3] = 0;
+	temp.s[0] = tempVector.X;
+	temp.s[1] = tempVector.Y;
+	temp.s[2] = tempVector.Z;
+	temp.s[3] = 0;
 	status = clSetKernelArg (
 		kernel                   /* kernel */,
 		3                        /* arg_index */,
 		sizeof ( cl_float4 )        /* arg_size */,
-		( void * ) temp /* arg_value */ );
+		( void * ) temp.s /* arg_value */ );
 
 	if ( status != CL_SUCCESS )
 	{
@@ -615,15 +614,15 @@ cl_int StartKernels ( void )
 	}
 
 	tempVector = camera->GetView();
-	temp[0] = tempVector.X;
-	temp[1] = tempVector.Y;
-	temp[2] = tempVector.Z;
-	temp[3] = 0;
+	temp.s[0] = tempVector.X;
+	temp.s[1] = tempVector.Y;
+	temp.s[2] = tempVector.Z;
+	temp.s[3] = 0;
 	status = clSetKernelArg (
 		kernel                   /* kernel */,
 		4                        /* arg_index */,
 		sizeof ( cl_float4 )        /* arg_size */,
-		( void * ) temp /* arg_value */ );
+		( void * ) temp.s /* arg_value */ );
 
 	if ( status != CL_SUCCESS )
 	{
@@ -633,13 +632,13 @@ cl_int StartKernels ( void )
 	Vector2D tempVector2D;
 	tempVector2D = camera->GetScreenScale();
 	cl_float2 temp2;
-	temp2[0] = tempVector2D.X;
-	temp2[1] = tempVector2D.Y;
+	temp2.s[0] = tempVector2D.X;
+	temp2.s[1] = tempVector2D.Y;
 	status = clSetKernelArg (
 		kernel                   /* kernel */,
 		5                        /* arg_index */,
 		sizeof ( cl_float2 )     /* arg_size */,
-		( void * )temp2			/* arg_value */ );
+		( void * )temp2.s			/* arg_value */ );
 
 	if ( status != CL_SUCCESS )
 	{

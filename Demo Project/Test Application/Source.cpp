@@ -18,6 +18,8 @@ using namespace Math;
 
 using namespace Render;
 
+#define USE_TEXTURE
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //                                       GLOBAL VARIABLES                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -157,6 +159,8 @@ cl_int SetupOpenCL ( cl_int deviceType )
 
 	cl_uint numPlatforms = 0;
 
+	char extensions[200];
+
 	status = clGetPlatformIDs ( 0               /* num_entries */,
 		NULL            /* platforms */,    
 		&numPlatforms   /* num_platforms */ );
@@ -195,37 +199,38 @@ cl_int SetupOpenCL ( cl_int deviceType )
 			{
 				cout << "ERROR! clGetPlatformInfo failed" << endl; exit ( -1 );
 			}
+			cout << endl << "Platform vendor: " << info <<endl;
 
 			platform = platforms [i];
-
-			if ( !strcmp ( info, "Advanced Micro Devices, Inc.") ) 
+			status = clGetPlatformInfo(platform,
+				CL_PLATFORM_EXTENSIONS, 
+				sizeof(extensions),
+				extensions,
+				NULL);
+			if ( status != CL_SUCCESS )
 			{
-				break;
+				cout << "ERROR! clGetPlatformInfo failed" << endl; exit ( -1 );
 			}
+			cout << endl << "Platform " << i << " extensions: " << extensions <<endl;
 		}
 
 		delete [] platforms;
 	}
 
-	/*
-	* If we could find our platform, use it. Otherwise pass a NULL and get whatever the
-	* implementation thinks we should be using.
-	*/
+	cl_context_properties cprops[] = {
 
-	cl_context_properties cps [3] = 
-	{
-		CL_CONTEXT_PLATFORM, 
-		( cl_context_properties ) platform, 
+		CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
+
+		CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(),
+
+		CL_WGL_HDC_KHR, (cl_context_properties)wglGetCurrentDC(),
+
 		0
+
 	};
 
-	/* Use NULL for backward compatibility. */
 
-	cl_context_properties * cprops = ( NULL == platform ) ? NULL : cps;
-
-	/*
-	* Create a context for the given type of the device.
-	*/
+	// Create a context for the given type of the device.
 
 	context = clCreateContextFromType ( cprops       /* properties */,
 		deviceType   /* device_type */,
@@ -255,7 +260,7 @@ cl_int SetupOpenCL ( cl_int deviceType )
 
 	if ( infoSize > 0 )
 	{
-		cl_device_id * ids = ( cl_device_id * ) alloca ( infoSize );
+		cl_device_id* ids = ( cl_device_id * ) alloca ( infoSize );
 
 		status = clGetContextInfo ( context              /* context */,
 			CL_CONTEXT_DEVICES   /* param_name */,
@@ -267,8 +272,21 @@ cl_int SetupOpenCL ( cl_int deviceType )
 		{
 			cout << "ERROR! clGetContextInfo failed" << endl; exit ( -1 );
 		}
-
 		device = ids [0];
+		cout << "Device 0 id: " << device << endl;
+		status = clGetDeviceInfo(device, 
+			CL_DEVICE_EXTENSIONS,
+			sizeof(extensions),
+			extensions,
+			NULL);
+		if(status != CL_SUCCESS)
+		{
+			cout << "ERROR! Can not get info on supported extensions!" << endl;
+		}
+		else
+		{
+			cout << "Supported extensions: " << extensions << endl;
+		}
 	}
 
 	if ( device == NULL )
@@ -346,18 +364,35 @@ cl_int SetupOpenCL ( cl_int deviceType )
 	* Create and initialize memory objects.
 	*/
 
-	clMemTexture = clCreateBuffer (
-		context                                   /* context */,
-		CL_MEM_WRITE_ONLY    /* flags */,
-		width * height * sizeof ( cl_float4 )       /* size */,
-		NULL                               /* host_ptr */,
-		&status                                   /* errcode_ret */ );
+#ifdef USE_TEXTURE
+
+	clMemTexture = clCreateFromGLTexture2D(context,
+		CL_MEM_WRITE_ONLY,
+		GL_TEXTURE_2D,
+		0,
+		openGLTexture->GetHandle(),
+		&status);
 
 	if ( status != CL_SUCCESS )
 	{
 		cout << "ERROR! clCreateBuffer failed" << endl; exit ( -1 );
 	}
 
+	status = clEnqueueAcquireGLObjects(commandQueue, 1, &clMemTexture, 0, NULL, NULL);
+	if ( status != CL_SUCCESS )
+	{
+		cout << "ERROR! clEnqueueAcquireGLObjects failed" << endl; exit ( -1 );
+	}
+
+#else
+
+	clMemTexture = clCreateBuffer (
+		context                                   /* context */,
+		CL_MEM_WRITE_ONLY    /* flags */,
+		width * height * sizeof ( cl_float4 )       /* size */,
+		NULL                               /* host_ptr */,
+		&status                                   /* errcode_ret */ );
+#endif
 	/*
 	* Create a CL program using the kernel source.
 	*/
@@ -463,6 +498,22 @@ cl_int ReleaseOpenCL ( void )
 	{
 		return result;
 	}
+
+#ifdef USE_TEXTURE
+
+	result = clEnqueueReleaseGLObjects(commandQueue,
+		1,
+		&clMemTexture,
+		0,
+		NULL,
+		NULL);
+	if(result != CL_SUCCESS)
+	{
+		return result;
+	}
+
+#endif
+
 	result = clReleaseMemObject(clMemTexture);
 	if(result != CL_SUCCESS)
 	{
@@ -668,6 +719,8 @@ cl_int StartKernels ( void )
 	}
 	//* Enqueue read buffer */
 
+#ifndef USE_TEXTURE
+
 	status = clEnqueueReadBuffer (
 		commandQueue                          /* command_queue */,
 		clMemTexture					 /* buffer */,
@@ -695,6 +748,9 @@ cl_int StartKernels ( void )
 	}
 
 	clReleaseEvent ( events [0] );
+
+#endif
+
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -816,7 +872,12 @@ int main ( void )
 		mouse.Apply ( camera );
 		keyboard.Apply ( camera );
 		StartKernels();
+
+#ifndef USE_TEXTURE
+
 		openGLTexture->Update();
+
+#endif
 		//cout<<camera->GetPosition().X<<" "<<camera->GetPosition().Y<<" "<<camera->GetPosition().Z<<" "<<camera->GetView().X<<" "<<camera->GetView().Y<<" "<<camera->GetView().Z<<" "<<endl;
 		Draw ( width, height, time );
 

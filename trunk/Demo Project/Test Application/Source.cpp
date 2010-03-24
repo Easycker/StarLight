@@ -375,7 +375,7 @@ cl_int SetupOpenCL ( cl_int deviceType )
 
 	if ( status != CL_SUCCESS )
 	{
-		cout << "ERROR! clCreateBuffer failed" << endl; exit ( -1 );
+		cout << "ERROR! clCreateFromGLTexture2D failed" << endl; exit ( -1 );
 	}
 
 	status = clEnqueueAcquireGLObjects(commandQueue, 1, &clMemTexture, 0, NULL, NULL);
@@ -392,7 +392,13 @@ cl_int SetupOpenCL ( cl_int deviceType )
 		width * height * sizeof ( cl_float4 )       /* size */,
 		NULL                               /* host_ptr */,
 		&status                                   /* errcode_ret */ );
+	if ( status != CL_SUCCESS )
+	{
+		cout << "ERROR! clCreateBuffer failed" << endl; exit ( -1 );
+	}
+
 #endif
+
 	/*
 	* Create a CL program using the kernel source.
 	*/

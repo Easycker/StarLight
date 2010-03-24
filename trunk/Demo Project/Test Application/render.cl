@@ -2,6 +2,8 @@
 
 #define USE_BOX_
 
+#define USE_TEXTURE
+
 typedef struct _SRay
 {
 	float4 Origin;
@@ -122,10 +124,9 @@ void GenerateRay (  PSRay pRay,
 				    const float4 Side,
 				    const float4 Up,
 				    const float4 View,
-				    const float2 Scale,
-					int2 TexCoord )
+				    const float2 Scale)
 {
-	float2 coords = (float2)((float)TexCoord.x/256.0f - 1.0f, (float)TexCoord.y/256.0f - 1.0f) * Scale;
+	float2 coords = (float2)((float)get_global_id(0)/256.0f - 1.0f, (float)get_global_id(1)/256.0f - 1.0f) * Scale;
 	
 	float4 direction = View - Side * coords.x + Up * coords.y;
    
@@ -199,23 +200,29 @@ float4 Raytrace ( PSRay pRay, const float4 Position)
 }
 
 //OpenCL kernel
-__kernel void main (__global float4 * texture,	
+__kernel void main (
+#ifdef USE_TEXTURE
+					__global __write_only image2d_t texture,
+#else
+					__global float4* texture,
+#endif
 			        const float4 Position,
 				    const float4 Side,
 				    const float4 Up,
 				    const float4 View,
 				    const float2 Scale)
 {
-	__private int2 TexCoord = (int2)(get_global_id(0), get_global_id(1));
-
 	__private SRay ray;
 	GenerateRay (&ray,
       			 Position,
 				 Side,
 				 Up,
 				 View,
-				 Scale,
-				 TexCoord );
+				 Scale);
 
-	texture[512*TexCoord.y + TexCoord.x] = Raytrace ( &ray, Position);
+#ifdef USE_TEXTURE
+	write_imagef (texture, (int2)(get_global_id(0), get_global_id(1)), Raytrace ( &ray, Position));
+#else
+	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace ( &ray, Position);
+#endif
 }

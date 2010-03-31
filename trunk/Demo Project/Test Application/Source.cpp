@@ -32,6 +32,7 @@ Keyboard keyboard ( 0.2F );
 
 Camera * camera = NULL;
 Texture2D* openGLTexture = NULL;
+GLuint openGLBuffer;
 
 int width = 512, height = 512, mode = GLFW_WINDOW;
 
@@ -148,7 +149,7 @@ char * LoadFile ( const char * path, long *outLength = NULL )
 	return source;
 }
 
-cl_int SetupOpenCL ( cl_int deviceType )
+cl_int SetupOpenCL ( cl_device_type deviceType )
 {
 	/*
 	* Have a look at the available platforms and pick either
@@ -159,7 +160,7 @@ cl_int SetupOpenCL ( cl_int deviceType )
 
 	cl_uint numPlatforms = 0;
 
-	char extensions[200];
+	char info [200];
 
 	status = clGetPlatformIDs ( 0               /* num_entries */,
 		NULL            /* platforms */,    
@@ -187,8 +188,6 @@ cl_int SetupOpenCL ( cl_int deviceType )
 
 		for ( unsigned i = 0; i < numPlatforms; ++i ) 
 		{
-			char info [100];
-
 			status = clGetPlatformInfo ( platforms [i]        /* platform */,
 				CL_PLATFORM_VENDOR   /* param_name */,
 				sizeof ( info )      /* param_value_size */,
@@ -199,19 +198,62 @@ cl_int SetupOpenCL ( cl_int deviceType )
 			{
 				cout << "ERROR! clGetPlatformInfo failed" << endl; exit ( -1 );
 			}
-			cout << endl << "Platform vendor: " << info <<endl;
+			cout << "Platform vendor: " << info <<endl;
+
+			status = clGetPlatformInfo ( platforms [i]        /* platform */,
+				CL_PLATFORM_NAME     /* param_name */,
+				sizeof ( info )      /* param_value_size */,
+				info                 /* param_value */,
+				NULL                 /* param_value_size_ret */ );
+
+			if ( status != CL_SUCCESS )
+			{
+				cout << "ERROR! clGetPlatformInfo failed" << endl; exit ( -1 );
+			}
+			cout << "Platform name: " << info <<endl;
+
+			status = clGetPlatformInfo ( platforms [i]        /* platform */,
+				CL_PLATFORM_VERSION  /* param_name */,
+				sizeof ( info )      /* param_value_size */,
+				info                 /* param_value */,
+				NULL                 /* param_value_size_ret */ );
+
+			if ( status != CL_SUCCESS )
+			{
+				cout << "ERROR! clGetPlatformInfo failed" << endl; exit ( -1 );
+			}
+			cout << "Platform version: " << info <<endl;
+
+
+			status = clGetPlatformInfo ( platforms [i]        /* platform */,
+				CL_PLATFORM_PROFILE  /* param_name */,
+				sizeof ( info )      /* param_value_size */,
+				info                 /* param_value */,
+				NULL                 /* param_value_size_ret */ );
+
+			if ( status != CL_SUCCESS )
+			{
+				cout << "ERROR! clGetPlatformInfo failed" << endl; exit ( -1 );
+			}
+			cout << "Platform profile: " << info <<endl;
 
 			platform = platforms [i];
 			status = clGetPlatformInfo(platform,
 				CL_PLATFORM_EXTENSIONS, 
-				sizeof(extensions),
-				extensions,
+				sizeof(info),
+				info,
 				NULL);
 			if ( status != CL_SUCCESS )
 			{
 				cout << "ERROR! clGetPlatformInfo failed" << endl; exit ( -1 );
 			}
-			cout << endl << "Platform " << i << " extensions: " << extensions <<endl;
+			cout << "Platform extensions:" <<endl;
+			int p = 0;
+			do
+			{
+				if(info[p] != ' ')cout.put(info[p]);
+				else cout << endl;
+			}while(info[++p]);
 		}
 
 		delete [] platforms;
@@ -273,20 +315,106 @@ cl_int SetupOpenCL ( cl_int deviceType )
 			cout << "ERROR! clGetContextInfo failed" << endl; exit ( -1 );
 		}
 		device = ids [0];
-		cout << "Device 0 id: " << device << endl;
+		cout << endl << "Device 0:" << endl;
+		cout << "ID: " << device << endl;
 		status = clGetDeviceInfo(device, 
-			CL_DEVICE_EXTENSIONS,
-			sizeof(extensions),
-			extensions,
+			CL_DEVICE_TYPE,
+			sizeof(deviceType),
+			&deviceType,
 			NULL);
 		if(status != CL_SUCCESS)
 		{
-			cout << "ERROR! Can not get info on supported extensions!" << endl;
+			cout << "ERROR! Can not get info on supported extensions!" << endl; exit ( -1 );
 		}
-		else
+		cout << "Device type:" << endl;
+		if(deviceType & CL_DEVICE_TYPE_GPU)
 		{
-			cout << "Supported extensions: " << extensions << endl;
+			cout << "CL_DEVICE_TYPE_GPU" << endl;
 		}
+		if(deviceType & CL_DEVICE_TYPE_CPU)
+		{
+			cout << "CL_DEVICE_TYPE_CPU" << endl;
+		}
+		if(deviceType & CL_DEVICE_TYPE_ACCELERATOR)
+		{
+			cout << "CL_DEVICE_TYPE_ACCELERATOR" << endl;
+		}
+		if(deviceType & CL_DEVICE_TYPE_DEFAULT)
+		{
+			cout << "CL_DEVICE_TYPE_DEFAULT" << endl;
+		}
+
+		status = clGetDeviceInfo(device, 
+			CL_DEVICE_VENDOR,
+			sizeof(info),
+			info,
+			NULL);
+		if(status != CL_SUCCESS)
+		{
+			cout << "ERROR! Can not get info on supported extensions!" << endl; exit ( -1 );
+		}
+		cout << "Device vendor: " << info << endl;
+
+		status = clGetDeviceInfo(device, 
+			CL_DEVICE_NAME,
+			sizeof(info),
+			info,
+			NULL);
+		if(status != CL_SUCCESS)
+		{
+			cout << "ERROR! Can not get info on supported extensions!" << endl; exit ( -1 );
+		}
+		cout << "Device name: " << info << endl;
+
+		status = clGetDeviceInfo(device, 
+			CL_DEVICE_VERSION,
+			sizeof(info),
+			info,
+			NULL);
+		if(status != CL_SUCCESS)
+		{
+			cout << "ERROR! Can not get info on supported extensions!" << endl; exit ( -1 );
+		}
+		cout << "Device version: " << info << endl;
+
+		status = clGetDeviceInfo(device, 
+			CL_DEVICE_PROFILE,
+			sizeof(info),
+			info,
+			NULL);
+		if(status != CL_SUCCESS)
+		{
+			cout << "ERROR! Can not get info on supported extensions!" << endl; exit ( -1 );
+		}
+		cout << "Device profile: " << info << endl;
+
+		status = clGetDeviceInfo(device, 
+			CL_DRIVER_VERSION,
+			sizeof(info),
+			info,
+			NULL);
+		if(status != CL_SUCCESS)
+		{
+			cout << "ERROR! Can not get info on supported extensions!" << endl; exit ( -1 );
+		}
+		cout << "OpenCL driver version: " << info << endl;
+
+		status = clGetDeviceInfo(device, 
+			CL_DEVICE_EXTENSIONS,
+			sizeof(info),
+			info,
+			NULL);
+		if(status != CL_SUCCESS)
+		{
+			cout << "ERROR! Can not get info on supported extensions!" << endl; exit ( -1 );
+		}
+		cout << "Device extensions:" << endl;
+		int p = 0;
+		do
+		{
+			if(info[p] != ' ')cout.put(info[p]);
+			else cout << endl;
+		}while(info[++p]);
 	}
 
 	if ( device == NULL )
@@ -392,6 +520,12 @@ cl_int SetupOpenCL ( cl_int deviceType )
 		width * height * sizeof ( cl_float4 )       /* size */,
 		NULL                               /* host_ptr */,
 		&status                                   /* errcode_ret */ );
+
+	/*clMemTexture = clCreateFromGLBuffer(context,
+		CL_MEM_WRITE_ONLY,
+		openGLBuffer,
+		&status);*/
+
 	if ( status != CL_SUCCESS )
 	{
 		cout << "ERROR! clCreateBuffer failed" << endl; exit ( -1 );
@@ -425,7 +559,7 @@ cl_int SetupOpenCL ( cl_int deviceType )
 		program   /* program */,
 		1         /* num_devices */,
 		&device   /* device_list */,
-		NULL      /* options */,
+		"-cl-mad-enable"      /* options */,
 		NULL      /* pfn_notify */,
 		NULL      /* user_data */ );
 
@@ -575,7 +709,7 @@ cl_int SetupKernels ( void )
 		cout << "Unsupported: Insufficient local memory on device." << endl; exit ( -1 );
 	}
 
-	cout << "Used local memory: " << usedLocalMemory << "/" << totalLocalMemory << endl; 
+	cout << endl << "Used local memory: " << usedLocalMemory << "/" << totalLocalMemory << endl; 
 
 	/* Check group size against group size returned by kernel */
 
@@ -635,7 +769,7 @@ cl_int StartKernels ( void )
 
 	if ( status != CL_SUCCESS )
 	{
-		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit ( -1 );
+		cout << "ERROR! clSetKernelArg #1 failed" << endl; exit ( -1 );
 	}
 
 	tempVector = camera->GetSide();
@@ -651,7 +785,7 @@ cl_int StartKernels ( void )
 
 	if ( status != CL_SUCCESS )
 	{
-		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit ( -1 );
+		cout << "ERROR! clSetKernelArg #2 failed" << endl; exit ( -1 );
 	}
 
 	tempVector = camera->GetUp();
@@ -667,7 +801,7 @@ cl_int StartKernels ( void )
 
 	if ( status != CL_SUCCESS )
 	{
-		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit ( -1 );
+		cout << "ERROR! clSetKernelArg #3 failed" << endl; exit ( -1 );
 	}
 
 	tempVector = camera->GetView();
@@ -683,7 +817,7 @@ cl_int StartKernels ( void )
 
 	if ( status != CL_SUCCESS )
 	{
-		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit ( -1 );
+		cout << "ERROR! clSetKernelArg #4 failed" << endl; exit ( -1 );
 	}	
 
 	Vector2D tempVector2D;
@@ -699,7 +833,7 @@ cl_int StartKernels ( void )
 
 	if ( status != CL_SUCCESS )
 	{
-		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit ( -1 );
+		cout << "ERROR! clSetKernelArg #5 failed" << endl; exit ( -1 );
 	}
 	status = clEnqueueNDRangeKernel (
 		commandQueue    /* command_queue */,
@@ -759,6 +893,12 @@ cl_int StartKernels ( void )
 
 	return CL_SUCCESS;
 }
+
+/*GLint CreateBufferObject( void )
+{
+	glGenBuffers(1, &openGLBuffer);
+}*/
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //                                          ENTRY POINT                                          //
 ///////////////////////////////////////////////////////////////////////////////////////////////////

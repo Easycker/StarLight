@@ -148,7 +148,7 @@ float4 reflect(float4 vec, float4 normal)
 {
 	return vec - normal * 2 * dot(vec, normal);
 }
-float4 Phong ( float4 point, float4 normal, float4 color, __constant float4 Position)
+float4 Phong ( float4 point, float4 normal, float4 color, const float4 Position)
 {
 	float4 Unit = (float4) ( 1.0F, 1.0F, 1.0F, 1.0F );
 
@@ -163,7 +163,7 @@ float4 Phong ( float4 point, float4 normal, float4 color, __constant float4 Posi
 	return K_A * Unit + diffuse * ( K_D * color + K_S * specular * Unit );
 }
 
-float4 Raytrace ( PSRay pRay, const float4 Position)
+float4 Raytrace ( PSRay pRay, constant float4 Position)
 {
 	float4 BoxMinimum = (float4) ( -5.0F, -5.0F, -5.0F, 0.0F );
 

@@ -537,7 +537,7 @@ cl_int SetupOpenCL ( cl_device_type deviceType )
 	* Create a CL program using the kernel source.
 	*/
 
-	const char * source = LoadFile ( "render.cl" );
+	const char * source = LoadFile ( "..//OpenCLSource//render.cl" );
 
 	size_t sourceSize [] = { strlen ( source ) };
 

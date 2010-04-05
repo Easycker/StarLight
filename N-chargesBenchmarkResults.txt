@@ -1,0 +1,22 @@
+OpenCL
+ATI Radeon HD4890
+Count    GPU       CPU (OpenCL)
+16k  --  16.9  --  0.2
+8k   --  67.3  --  0.9
+4k   -- 152.9  --  3.5
+2k   -- 316.0  --  13.6
+
+
+NVIDIA QUADRO FX5600  (openCL)        (shaders)       (CUDA)
+16k                   --  37.3        --   27.8   --    230.434 ms, 232.983 GFLOPS, 10 iterations
+8k                    --  148.3       --   106.9  --   57.988 ms, 231.458 GFLOPS, 10 iterations
+4k                    --  583.8       --   319.9  --   14.877 ms ms, 225.550 GFLOPS, 10 iterations
+2k                    --  1147.7      --   907.6  --   7.153 ms, 117.273 GFLOPS, 10 iterations
+
+GLSL
+ATI Radeon HD4890
+Count    GPU
+16k  -- 106.9 
+8k   -- 392.2 
+4k   -- 1617
+2k   -- 3108

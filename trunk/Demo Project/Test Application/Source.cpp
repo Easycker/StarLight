@@ -399,7 +399,7 @@ cl_int SetupOpenCL ( cl_device_type deviceType )
 		}
 		cout << "OpenCL driver version: " << info << endl;
 
-		status = clGetDeviceInfo(device, 
+/*		status = clGetDeviceInfo(device, 
 			CL_DEVICE_EXTENSIONS,
 			sizeof(info),
 			info,
@@ -414,7 +414,7 @@ cl_int SetupOpenCL ( cl_device_type deviceType )
 		{
 			if(info[p] != ' ')cout.put(info[p]);
 			else cout << endl;
-		}while(info[++p]);
+		}while(info[++p]);*/
 	}
 
 	if ( device == NULL )
@@ -911,7 +911,7 @@ int main ( void )
 
 	cout << "Do you want to run program in full screen mode? [Y/N]" << endl;
 
-	int choice = getchar ( );
+	int choice = 'n';//getchar ( );
 
 	//---------------------------------------------------------------------------------------------
 

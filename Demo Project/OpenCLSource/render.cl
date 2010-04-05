@@ -1,6 +1,5 @@
 #define DELTA 0.3f
 
-#define USE_BOX_
 
 #define USE_TEXTURE
 
@@ -11,114 +10,93 @@ typedef struct _SRay
 	float4 Direction;
 }SRay, *PSRay;
 
-bool IntersectBox ( PSRay pRay, float4 minimum, float4 maximum, float* start, float* final )
+#define plain_normal (float4)( -1.0F, 0.0F, 0.0F, 0.0F )
+#define plain_x	     (float4)( 0.0F, 1.0F, 0.0F, 0.0F )
+#define plain_y	     (float4)( 0.0F, 0.0F, 1.0F, 0.0F )
+#define plain_min_x  -50.0F
+#define plain_max_x   50.0F
+#define plain_min_y  -50.0F
+#define plain_max_y   50.0F
+
+bool IntersectPlain( PSRay pRay, float4* normal , float* time , float4* color )
 {
-	float4 OMAX = ( minimum - pRay->Origin ) / pRay->Direction;
+	float4 origin = pRay->Origin;
+	origin.w = 1;
+	float tmp = -dot( origin , plain_normal );
 	
-	float4 OMIN = ( maximum - pRay->Origin ) / pRay->Direction;
+	float4 direction = pRay->Direction;
+	direction.w = 0;
+	tmp /= dot( direction , plain_normal );
 	
-	float4 MAX = max ( OMAX, OMIN );
+	if( tmp < 0 )
+		return false;
+
+	*time = tmp;
 	
-	float4 MIN = min ( OMAX, OMIN );
+	float4 point = pRay->Origin + *time * pRay->Direction;
 	
-	*final = min ( MAX.x, min ( MAX.y, MAX.z ) );
+	float x_val = dot( point , plain_x );
+	float y_val = dot( point , plain_y );	
 	
-	*start = max ( max ( MIN.x, 0.0F), max ( MIN.y, MIN.z ) );	
+	float color_mix = ( ( (int)( round(x_val/4) + round(y_val/4) ) % 2 ) == 0 );
+		
+	*color = mix( (float4) ( 0.0F, 0.0F, 0.0F, 0.0F ) , (float4) ( 1.0F, 1.0F, 1.0F, 0.0F ) , color_mix );	
 	
-	return *final >*start;
+	*normal = plain_normal;
+	if( dot( *normal , pRay->Direction ) > 0 )
+		*normal = -*normal;
+	
+	return ( x_val >= plain_min_x ) && 
+	       ( x_val <= plain_max_x ) && 
+	       ( y_val >= plain_min_y ) && 
+	       ( y_val <= plain_max_y );
+ 	
 }
-bool IntersectSphere ( PSRay pRay, float radius, float* start, float* final )
+
+#define sphere_center (float4)(-10.0F , 0.0F ,0.0F , 0.0F )
+#define sphere_radius 10.0F
+
+bool IntersectSphere ( PSRay pRay, float4* normal , float* time , float4* color )
 {
+
+	float eps = 1e-2;
+
+	float4 base = pRay->Origin - sphere_center;
+
 	float A = dot ( pRay->Direction, pRay->Direction );
 
-	float B = dot ( pRay->Direction, pRay->Origin );
+	float B = dot ( pRay->Direction, base );
 
-	float C = dot ( pRay->Origin, pRay->Origin ) - radius * radius;
+	float C = dot ( base , base ) - sphere_radius * sphere_radius;
 
 	float D = B * B - A * C;
 	
-	if ( D > 0.0f )
+	if ( D > eps )
 	{
 		D = sqrt ( D );
 
-		*start = fmax ( 0.0F, ( -B - D ) / A );
+		float start = ( -B - D ) / A;
+		float final = ( -B + D ) / A;
+		
+		if( start > eps )
+			*time = start;
+		else *time = final;
+			
+		*color = (float4)( 1.0F , 0.0F , 0.0F , 0.0F );
+		
+		float4 point = pRay->Origin + *time * pRay->Direction;
+		
+		*normal = normalize( point - sphere_center );
+		
+		if( start < eps && final > eps )
+			*normal = -*normal;
 
-		*final = ( -B + D ) / A;
-
-		return *final > 0.0F;
+		return *time > eps;
 	}
 
 	return false;
 }
-float CalcFunction ( float4 point )
-{
-	float x = point.x, y = point.y, z = point.z, T = 1.6180339887f;
 
-	return 2.0f - native_cos ( x + T * y ) - native_cos ( x - T * y ) - native_cos ( y + T * z ) -
-		         native_cos ( y - T * z ) - native_cos ( z - T * x ) - native_cos ( z + T * x );
-
-//	return native_sin ( x ) + native_sin ( y ) + native_sin ( z );
-}
-#define STEP  0.01f
-
-float4 CalcNormal ( float4 point )
-{
-	float4 AxisX = (float4) ( 1.0F, 0.0F, 0.0F, 0.0F );
-
-	float4 AxisY = (float4) ( 0.0F, 1.0F, 0.0F, 0.0F );
-
-	float4 AxisZ = (float4) ( 0.0F, 0.0F, 1.0F, 0.0F );
-
-	float A = CalcFunction ( point - AxisX * STEP );
-	float B = CalcFunction ( point + AxisX * STEP );
-
-	float C = CalcFunction ( point - AxisY * STEP );
-	float D = CalcFunction ( point + AxisY * STEP );
-
-	float E = CalcFunction ( point - AxisZ * STEP );
-	float F = CalcFunction ( point + AxisZ * STEP );
-
-	return normalize ( (float4) ( B - A, D - C, F - E, 0 ) );
-}
-
-#define INTERVALS 100
-
-bool IntersectSurface ( PSRay pRay, float start, float final, float* val)
-{
-	float step = ( final - start ) / (float) ( INTERVALS );
-
-	//-----------------------------------------------------------------------------------
-
-	float time = start;
-
-	float4 point = pRay->Origin + time * pRay->Direction;
-
-	//-----------------------------------------------------------------------------------
-
-	float right, left = CalcFunction ( point );
-
-	//-----------------------------------------------------------------------------------
-
-	for ( int i = 0; i < INTERVALS; i++ )
-	{
-		time += step;
-
-		point += step * pRay->Direction;
-
-		right = CalcFunction ( point );
-		
-		if ( left * right < 0.0F )
-		{
-			*val = time + right * step / ( left - right );
-
-			return true;
-		}
-		
-		left = right;
-	}
-
-	return false;
-}
 void GenerateRay (  PSRay pRay,
 				    const float4 Position,
 				    const float4 Side,
@@ -148,55 +126,119 @@ float4 reflect(float4 vec, float4 normal)
 {
 	return vec - normal * 2 * dot(vec, normal);
 }
-float4 Phong ( float4 point, float4 normal, float4 color, const float4 Position)
+
+#define light_position (float4)( -100.0F, 0.0F, 0.0F, 0.0F )
+
+float4 Phong ( float4 point, float4 normal, float4 color, __constant float4 Position )
 {
 	float4 Unit = (float4) ( 1.0F, 1.0F, 1.0F, 1.0F );
 
-	float4 light = normalize ( Position - point );
+	float4 view = normalize ( Position - point );
+	float4 light = normalize ( light_position - point );
    
-	float diffuse = fabs ( dot ( light, normal ) );
+	float diffuse = max( dot ( light, normal ) , 0.0F );
 
 	float4 reflectVec = reflect ( -light, normal );
 
-	float specular = native_powr ( fabs ( dot ( reflectVec, light ) ), P );
+	float specular = native_powr ( max( dot ( reflectVec, view ) , 0.0F ), P );
 
 	return K_A * Unit + diffuse * ( K_D * color + K_S * specular * Unit );
 }
 
-float4 Raytrace ( PSRay pRay, constant float4 Position)
+#define refract_depth 5
+
+#define inner_n 1.07F
+
+float4 Refract( float4 incoming_ray , float4 normal , bool inner )
 {
-	float4 BoxMinimum = (float4) ( -5.0F, -5.0F, -5.0F, 0.0F );
+		
+	float n = inner_n;
+	
+	if( !inner )
+		n = 1/n;
+		
+	float cosi = dot( normal , incoming_ray );
+	float sin2 = n * n * ( 1.0 - cosi*cosi );
+	if( sin2 > 1 )
+		return reflect( incoming_ray,normal);
 
-	float4 BoxMaximum = (float4) ( 5.0F, 5.0F, 5.0F, 0.0F );
+	return n * incoming_ray - ( n*cosi + sqrt( 1.0 - sin2 ))*normal;
+}
 
-	float Radius = 5.5f;
-
-	float4 result = (float4) ( 0.0F, 0.0F, 0.0F, 0.0F );
-    
-	float start, final, time;
-
-#ifdef USE_BOX
-
-	if ( IntersectBox ( pRay, BoxMinimum, BoxMaximum, &start, &final ) )
-
-#else
-
-	if ( IntersectSphere ( pRay, Radius, &start, &final ) )
-
-#endif
+bool RaytraceStep( PSRay pRay , const float4 Position , float4* color , float* color_mul , PSRay new_ray )
+{
+	float  sp_time;
+	float4 sp_normal;
+	float4 sp_color;
+	
+	if( !IntersectSphere( pRay , &sp_normal , &sp_time , &sp_color ) )
+		sp_time = INFINITY;
+	
+	float  pl_time;
+	float4 pl_normal;
+	float4 pl_color;
+	
+	if( !IntersectPlain( pRay , &pl_normal , &pl_time , &pl_color ) )
+		pl_time = INFINITY;
+		
+	if( sp_time < pl_time )
 	{
-		if ( IntersectSurface ( pRay, start, final, &time ))
-		{
-			float4 point = pRay->Origin + pRay->Direction * time;
-					
-			float4 normal = CalcNormal ( point );
-
-			float4 color = native_divide( point - BoxMinimum , BoxMaximum - BoxMinimum );
-
-			result = Phong ( point, normal, color, Position);
-		}
+	
+		*color	   = (float4)( 0.0F, 0.0F, 0.0F, 0.0F ); 
+		*color_mul = 1.0F;
+		
+		float4 point = pRay->Origin + sp_time * pRay->Direction;
+		
+		new_ray->Origin = point;
+		new_ray->Direction = Refract( normalize( pRay->Direction ) , sp_normal , dot( sp_normal , point - sphere_center ) > 0.0F );
+		new_ray->Origin.w = 0;
+		new_ray->Direction.w = 0;
+		
+		return true;
 	}
-	return result;
+	
+	if( pl_time < sp_time )
+	{
+	
+		float4 point = pRay->Origin + pl_time * pRay->Direction;
+		
+		*color = Phong( point , pl_normal , pl_color , Position );
+		
+		return false;
+		
+	}
+	
+	*color	   = (float4)( 0.0F, 0.0F, 0.0F, 0.0F ); 
+	*color_mul = 1.0F;
+	
+	return false;
+	
+}
+
+float4 Raytrace ( PSRay pRay, const float4 Position)
+{
+	
+	float4 color;
+	float4 ret_color = (float4)( 0.0F, 0.0F, 0.0F, 0.0F );
+	float  color_mul = 1.0F;
+	
+	for( int i = 0 ; i < refract_depth ; i++ )
+	{
+		SRay new_ray;
+		float new_mul;
+		
+		bool not_last = RaytraceStep( pRay , Position , &color , &new_mul , &new_ray );
+		
+		ret_color += color * color_mul;
+		
+		if( !not_last )
+			break;
+		
+		color_mul *= new_mul;
+		pRay = &new_ray;
+	}
+	
+	return ret_color;
 }
 
 //OpenCL kernel
@@ -221,8 +263,8 @@ __kernel void main (
 				 Scale);
 
 #ifdef USE_TEXTURE
-	write_imagef (texture, (int2)(get_global_id(0), get_global_id(1)), Raytrace ( &ray, Position));
+	write_imagef (texture, (int2)(get_global_id(0), get_global_id(1)), Raytrace ( &ray, Position ) );
 #else
-	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace ( &ray, Position);
+	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace ( &ray, Position ) );
 #endif
 }

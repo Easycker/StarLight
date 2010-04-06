@@ -147,7 +147,7 @@ float4 Phong ( float4 point, float4 normal, float4 color, __constant float4 Posi
 
 #define refract_depth 5
 
-#define inner_n 1.07F
+#define inner_n 1.2F
 
 float4 Refract( float4 incoming_ray , float4 normal , bool inner )
 {
@@ -190,7 +190,7 @@ bool RaytraceStep( PSRay pRay , const float4 Position , float4* color , float* c
 		float4 point = pRay->Origin + sp_time * pRay->Direction;
 		
 		new_ray->Origin = point;
-		new_ray->Direction = Refract( normalize( pRay->Direction ) , sp_normal , dot( sp_normal , point - sphere_center ) > 0.0F );
+		new_ray->Direction = Refract( normalize( pRay->Direction ) , sp_normal , dot( sp_normal , point - sphere_center ) < 0.0F );
 		new_ray->Origin.w = 0;
 		new_ray->Direction.w = 0;
 		

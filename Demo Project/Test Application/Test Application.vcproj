@@ -40,6 +40,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalOptions="/D &quot;NVIDIA&quot;"
 				Optimization="0"
 				AdditionalIncludeDirectories="&quot;$(SolutionDir)\Dependencies\OpenCL\NVIDIA\Include&quot;;&quot;$(SolutionDir)\Dependencies\GLee\Include&quot;;&quot;$(SolutionDir)\Dependencies\GLFW\Include&quot;;&quot;$(SolutionDir)\Base Libraries\Base Math Library&quot;;&quot;$(SolutionDir)\Base Libraries\Base Render Library&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
@@ -116,6 +117,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalOptions="/D &quot;NVIDIA&quot;"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="&quot;$(SolutionDir)\Dependencies\OpenCL\NVIDIA\Include&quot;;&quot;$(SolutionDir)\Dependencies\GLee\Include&quot;;&quot;$(SolutionDir)\Dependencies\GLFW\Include&quot;;&quot;$(SolutionDir)\Base Libraries\Base Math Library&quot;;&quot;$(SolutionDir)\Base Libraries\Base Render Library&quot;"
@@ -193,6 +195,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalOptions="/D &quot;AMD&quot;"
 				Optimization="0"
 				AdditionalIncludeDirectories="&quot;$(SolutionDir)\Dependencies\OpenCL\AMD\Include&quot;;&quot;$(SolutionDir)\Dependencies\GLee\Include&quot;;&quot;$(SolutionDir)\Dependencies\GLFW\Include&quot;;&quot;$(SolutionDir)\Base Libraries\Base Math Library&quot;;&quot;$(SolutionDir)\Base Libraries\Base Render Library&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
@@ -269,6 +272,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalOptions="/D &quot;AMD&quot;"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="&quot;$(SolutionDir)\Dependencies\OpenCL\AMD\Include&quot;;&quot;$(SolutionDir)\Dependencies\GLee\Include&quot;;&quot;$(SolutionDir)\Dependencies\GLFW\Include&quot;;&quot;$(SolutionDir)\Base Libraries\Base Math Library&quot;;&quot;$(SolutionDir)\Base Libraries\Base Render Library&quot;"

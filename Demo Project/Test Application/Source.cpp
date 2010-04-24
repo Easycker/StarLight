@@ -51,6 +51,7 @@ GLuint openGLBuffer;
 
 int width = 512, height = 512, mode = GLFW_WINDOW;
 
+int photon_map_width = 32 , photon_map_height = 32;
 
 // Sphere position(only for test)
 
@@ -329,12 +330,12 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 			ids                  /* param_value */,
 			NULL                 /* param_value_size_ret */);
 
-		if(status != CL_SUCCESS)
-		{
-			cout << "ERROR! clGetContextInfo failed" << endl; exit(-1);
-		}
+//		if(status != CL_SUCCESS)
+//		{
+//			cout << "ERROR! clGetContextInfo failed" << endl; exit(-1);
+//		}
 		device = ids [0];
-		cout << endl << "Device 0:" << endl;
+/*		cout << endl << "Device 0:" << endl;
 		cout << "ID: " << device << endl;
 		status = clGetDeviceInfo(device, 
 			CL_DEVICE_TYPE,
@@ -361,9 +362,9 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 		if(deviceType & CL_DEVICE_TYPE_DEFAULT)
 		{
 			cout << "CL_DEVICE_TYPE_DEFAULT" << endl;
-		}
+		}*/
 
-		status = clGetDeviceInfo(device, 
+/*		status = clGetDeviceInfo(device, 
 			CL_DEVICE_VENDOR,
 			sizeof(info),
 			info,
@@ -433,7 +434,7 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 		{
 			if(info[p] != ' ')cout.put(info[p]);
 			else cout << endl;
-		}while(info[++p]);
+		}while(info[++p]);*/
 	}
 
 	if(device == NULL)
@@ -552,17 +553,17 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 
 #endif
 
-	//clMemPhotonMap = clCreateBuffer(
-	//	context                                   /* context */,
-	//	CL_MEM_READ_WRITE							/* flags */,
-	//	SIZE_OF_THE_MAP						/* size */,
-	//	NULL                               /* host_ptr */,
-	//	&status                                   /* errcode_ret */);
+	clMemPhotonMap = clCreateBuffer(
+		context                                   /* context */,
+		CL_MEM_READ_WRITE							/* flags */,
+		photon_map_width * photon_map_height		/* size */,
+		NULL                               /* host_ptr */,
+		&status                                   /* errcode_ret */);
 
-	//if(status != CL_SUCCESS)
-	//{
-	//	cout << "ERROR! clCreateBuffer failed" << endl; exit(-1);
-	//}
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clCreateBuffer failed" << endl; exit(-1);
+	}
 	/*
 	* Create a CL program using the kernel source.
 	*/
@@ -653,14 +654,14 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 		cout << "ERROR! clCreateKernel failed" << endl; exit(-1);
 	}
 
-	//kernelLightPass = clCreateKernel(program       /* program */,
-	//	"LightPass"   /* kernel_name */,
-	//	&status       /* errcode_ret */);
+	kernelLightPass = clCreateKernel(program       /* program */,
+		"LightPass"   /* kernel_name */,
+		&status       /* errcode_ret */);
 
-	//if(status != CL_SUCCESS)
-	//{
-	//	cout << "ERROR! clCreateKernel failed" << endl; exit(-1);
-	//}
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clCreateKernel failed" << endl; exit(-1);
+	}
 
 	return status;
 }
@@ -738,27 +739,27 @@ cl_int SetupKernels(void)
 	{
 		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
 	}
-	//status = clSetKernelArg(
-	//	kernelViewPass                   /* kernel */,
-	//	6                        /* arg_index */,
-	//	sizeof(cl_mem)        /* arg_size */,
-	//	(void *) &clMemPhotonMap /* arg_value */);
+	status = clSetKernelArg(
+		kernelViewPass                   /* kernel */,
+		6                        /* arg_index */,
+		sizeof(cl_mem)        /* arg_size */,
+		(void *) &clMemPhotonMap /* arg_value */);
 
-	//if(status != CL_SUCCESS)
-	//{
-	//	cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
-	//}
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
+	}
 
-	//status = clSetKernelArg(
-	//	kernelLightPass                   /* kernel */,
-	//	0                        /* arg_index */,
-	//	sizeof(cl_mem)        /* arg_size */,
-	//	(void *) &clMemPhotonMap /* arg_value */);
+	status = clSetKernelArg(
+		kernelLightPass                   /* kernel */,
+		0                        /* arg_index */,
+		sizeof(cl_mem)        /* arg_size */,
+		(void *) &clMemPhotonMap /* arg_value */);
 
-	//if(status != CL_SUCCESS)
-	//{
-	//	cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
-	//}
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
+	}
 
 	status = clGetKernelWorkGroupInfo(
 		kernelViewPass                     /* kernel */,
@@ -816,6 +817,7 @@ cl_int StartKernels(void)
 	cl_event events [1];
 
 	size_t globalThreads [] = { width, height };
+	size_t globalLightThreads [] = { width, height };
 
 	size_t localThreads [] = { groupSizeX, groupSizeY };
 
@@ -908,16 +910,99 @@ cl_int StartKernels(void)
 //////////////////////////////////////
 	//////here you can SetKernelArgs for LightPass
 ///////////////////////////////////////////
-	//status = clEnqueueNDRangeKernel(
-	//	commandQueue    /* command_queue */,
-	//	kernelLightPass          /* kernel */,////////////////values in [] should be discussed
-	//	[2]              /* work_dim */,
-	//	NULL            /* global_work_offset */,
-	//	[globalThreads]   /* global_work_size */,
-	//	[localThreads]    /* local_work_size */,
-	//	0               /* num_events_in_wait_list */,
-	//	NULL            /* event_wait_list */,
-	//	NULL            /* event */);
+
+	tempVector = Vector3D( -100 , 0 , 0 );
+	temp.s[0] = tempVector.X;
+	temp.s[1] = tempVector.Y;
+	temp.s[2] = tempVector.Z;
+	temp.s[3] = 0;
+	status = clSetKernelArg(
+		kernelLightPass                   /* kernel */,
+		1                        /* arg_index */,
+		sizeof(cl_float4)        /* arg_size */,
+		(void *) temp.s			/* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #1 failed" << endl; exit(-1);
+	}
+
+	tempVector = Vector3D( 0 , 1 , 0 );
+	temp.s[0] = tempVector.X;
+	temp.s[1] = tempVector.Y;
+	temp.s[2] = tempVector.Z;
+	temp.s[3] = 0;
+	status = clSetKernelArg(
+		kernelLightPass                   /* kernel */,
+		2                        /* arg_index */,
+		sizeof(cl_float4)        /* arg_size */,
+		(void *) temp.s /* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #2 failed" << endl; exit(-1);
+	}
+
+	tempVector = Vector3D( 0 , 0 , 1 );
+	temp.s[0] = tempVector.X;
+	temp.s[1] = tempVector.Y;
+	temp.s[2] = tempVector.Z;
+	temp.s[3] = 0;
+	status = clSetKernelArg(
+		kernelLightPass                   /* kernel */,
+		3                        /* arg_index */,
+		sizeof(cl_float4)        /* arg_size */,
+		(void *) temp.s /* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #3 failed" << endl; exit(-1);
+	}
+
+	tempVector = Vector3D( -1 , 0 , 0 );
+	temp.s[0] = tempVector.X;
+	temp.s[1] = tempVector.Y;
+	temp.s[2] = tempVector.Z;
+	temp.s[3] = 0;
+	status = clSetKernelArg(
+		kernelLightPass                   /* kernel */,
+		4                        /* arg_index */,
+		sizeof(cl_float4)        /* arg_size */,
+		(void *) temp.s /* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #4 failed" << endl; exit(-1);
+	}	
+
+	tempVector2D;
+	tempVector2D = Vector2D( 1 , 1 );
+	temp2.s[0] = tempVector2D.X;
+	temp2.s[1] = tempVector2D.Y;
+	status = clSetKernelArg(
+		kernelLightPass                   /* kernel */,
+		5                        /* arg_index */,
+		sizeof(cl_float2)     /* arg_size */,
+		(void *)temp2.s			/* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #5 failed" << endl; exit(-1);
+	}
+
+///////////////////////////////////////////
+	status = clEnqueueNDRangeKernel(
+		commandQueue    /* command_queue */,
+		kernelLightPass          /* kernel */,////////////////values in [] should be discussed
+		2              /* work_dim */,
+		NULL            /* global_work_offset */,
+		globalLightThreads   /* global_work_size */,
+		localThreads    /* local_work_size */,
+		0               /* num_events_in_wait_list */,
+		NULL            /* event_wait_list */,
+		NULL            /* event */);
+
+	status = clFinish(commandQueue);
 
 	//if(status != CL_SUCCESS)
 	//{

@@ -242,6 +242,9 @@ bool RaytraceStep(PSRay pRay,
 	
 		float4 point = pRay->Origin + pl_time * pRay->Direction;
 		
+		new_ray->Origin = point;
+		new_ray->Origin.w = 0;
+		
 		*color = Phong(point, pl_normal, pl_color, Position);
 		
 		return false;	
@@ -249,6 +252,7 @@ bool RaytraceStep(PSRay pRay,
 	
 	*color	   = (float4)(0.0F, 0.0F, 0.0F, 0.0F); 
 	*color_mul = 1.0F;
+	new_ray->Origin = (float4)( INFINITY , INFINITY , INFINITY , INFINITY );
 	
 	return false;
 	
@@ -281,16 +285,46 @@ float4 Raytrace(PSRay pRay, const float4 Position)
 	return ret_color;
 }
 
+float4 ForwardRaytrace(PSRay pRay, const float4 Position)
+{
+	
+	float4 color;
+	float new_mul;
+	
+	for(int i = 0; i < REFRACT_DEPTH; i++)
+	{
+	
+		SRay new_ray;		
+		bool not_last = RaytraceStep(pRay, Position, &color, &new_mul, &new_ray);
+		
+		if(!not_last)
+			return new_ray.Origin;
+		
+		pRay = &new_ray;
+	}
+	
+	return (float4)( INFINITY,INFINITY,INFINITY, 0.0F );
+}
+
 //OpenCL kernels
-//__kernel void LightPass(__global float4* photonMap,
-//			        const float4 Position,
-//				    const float4 Side,
-//				    const float4 Up,			//add or remove any args
-//				    const float4 View,
-//				    const float2 Scale)
-//{
-//
-//}
+__kernel void LightPass(__global float4* photonMap,
+			        const float4 Position,
+				    const float4 Side,
+				    const float4 Up,			//add or remove any args
+				    const float4 View,
+				    const float2 Scale)
+{
+	__private SRay ray;
+	
+	GenerateRay(&ray,
+      			 Position,
+				 Side,
+				 Up,
+				 View,
+				 Scale);
+				 
+	photonMap[ get_global_size(0) * get_global_id(1) + get_global_id(0) ] = ForwardRaytrace(&ray, Position);
+}
 __kernel void ViewPass(
 #ifdef USE_TEXTURE
 					__global __write_only image2d_t texture,
@@ -301,8 +335,9 @@ __kernel void ViewPass(
 				    const float4 Side,
 				    const float4 Up,
 				    const float4 View,
-				    const float2 Scale)
-					//__global float4* photonMap)
+				    const float2 Scale,
+				    __global float4* photonMap
+					)
 {
 	__private SRay ray;
 	GenerateRay(&ray,

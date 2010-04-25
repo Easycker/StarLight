@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RadixSortCpp", "RadixSortCpp\RadixSortCpp.vcproj", "{881C330E-D31E-4709-B826-FF3C817BD548}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Naive_OpenCL_RadixSort", "Naive_OpenCL_RadixSort\Naive_OpenCL_RadixSort.vcproj", "{DB51CF9C-F222-4668-A1F2-3342BBE114F4}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "OOPRadixSort", "OOPRadixSort\OOPRadixSort.vcproj", "{EF4FE171-FC80-4EAF-988A-5D8287C02776}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{881C330E-D31E-4709-B826-FF3C817BD548}.Debug|Win32.ActiveCfg = Debug|Win32
+		{881C330E-D31E-4709-B826-FF3C817BD548}.Debug|Win32.Build.0 = Debug|Win32
+		{881C330E-D31E-4709-B826-FF3C817BD548}.Release|Win32.ActiveCfg = Release|Win32
+		{881C330E-D31E-4709-B826-FF3C817BD548}.Release|Win32.Build.0 = Release|Win32
+		{DB51CF9C-F222-4668-A1F2-3342BBE114F4}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DB51CF9C-F222-4668-A1F2-3342BBE114F4}.Debug|Win32.Build.0 = Debug|Win32
+		{DB51CF9C-F222-4668-A1F2-3342BBE114F4}.Release|Win32.ActiveCfg = Release|Win32
+		{DB51CF9C-F222-4668-A1F2-3342BBE114F4}.Release|Win32.Build.0 = Release|Win32
+		{EF4FE171-FC80-4EAF-988A-5D8287C02776}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EF4FE171-FC80-4EAF-988A-5D8287C02776}.Debug|Win32.Build.0 = Debug|Win32
+		{EF4FE171-FC80-4EAF-988A-5D8287C02776}.Release|Win32.ActiveCfg = Release|Win32
+		{EF4FE171-FC80-4EAF-988A-5D8287C02776}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -1,5 +1,7 @@
 #define DELTA 0.3f
 
+#define PHOTON_MAP_SIZE 1024
+
 /////////////////////////////////////////////////////////////
 
 #define USE_TEXTURE
@@ -27,7 +29,7 @@ typedef struct _SRay
 /////////////////////////////////////////////////////////////
 
 #define SPHERE_CENTER (float4)(-10.0F, 0.0F,0.0F, 0.0F)
-#define SPHERE_RADIUS 10.0F
+#define SPHERE_RADIUS 8.0F
 
 /////////////////////////////////////////////////////////////
 
@@ -142,7 +144,11 @@ void GenerateRay(PSRay pRay,
 				    const float4 View,
 				    const float2 Scale)
 {
-	float2 coords =(float2)((float)get_global_id(0) / 256.0f - 1.0f, (float)get_global_id(1) / 256.0f - 1.0f) * Scale;
+
+	float x_coord = 2.0F * (float)get_global_id( 0 ) / (float)get_global_size( 0 ) - 1.0F;
+	float y_coord = 2.0F * (float)get_global_id( 1 ) / (float)get_global_size( 1 ) - 1.0F;
+
+	float2 coords =(float2)( x_coord , y_coord ) * Scale;
 	
 	float4 direction = View - Side * coords.x + Up * coords.y;
    
@@ -258,7 +264,7 @@ bool RaytraceStep(PSRay pRay,
 	
 }
 
-float4 Raytrace(PSRay pRay, const float4 Position)
+float4 Raytrace(PSRay pRay, const float4 Position , __global float4* photonMap )
 {
 	float4 color;
 	float4 ret_color = (float4)(0.0F, 0.0F, 0.0F, 0.0F);
@@ -275,11 +281,25 @@ float4 Raytrace(PSRay pRay, const float4 Position)
 		
 		if(!not_last)
 		{
+			float photon_mul = 0.0F;
+	
+			for( int j = 0 ; j < PHOTON_MAP_SIZE ; j++ )
+			{
+				
+				float4 tmp = photonMap[ j ] - new_ray.Origin;
+				tmp.w = 0;
+				float range = dot( tmp , tmp );
+				photon_mul += max( 0.0F , 10.0F - range ); 
+			}
+			
+			ret_color += (float4)( 0.0F , 0.1F , 0.0F , 0.0F ) * photon_mul ;
+			
 			break;
 		}
 		
 		color_mul *= new_mul;
 		pRay = &new_ray;
+		
 	}
 	
 	return ret_color;
@@ -348,8 +368,8 @@ __kernel void ViewPass(
 				 Scale);
 
 #ifdef USE_TEXTURE
-	write_imagef(texture,(int2)(get_global_id(0), get_global_id(1)), Raytrace(&ray, Position));
+	write_imagef(texture,(int2)(get_global_id(0), get_global_id(1)), Raytrace(&ray, Position , photonMap ));
 #else
-	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace(&ray, Position));
+	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace(&ray, Position, photonMap ));
 #endif
 }

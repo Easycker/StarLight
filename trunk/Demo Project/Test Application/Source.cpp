@@ -56,8 +56,8 @@ int photon_map_width = 32 , photon_map_height = 32;
 // Sphere position(only for test)
 
 Vector3D position = Vector3D :: Zero;
-size_t groupSizeX = 1;										/* Work-Group size(for CPU = 1) */
-size_t groupSizeY = 64;
+size_t groupSizeX = 8;										/* Work-Group size(for CPU = 1) */
+size_t groupSizeY = 8;
 //-----------------------------------------------------------------------------------------------------------
 
 cl_mem clMemTexture;	
@@ -556,7 +556,7 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 	clMemPhotonMap = clCreateBuffer(
 		context                                   /* context */,
 		CL_MEM_READ_WRITE							/* flags */,
-		photon_map_width * photon_map_height		/* size */,
+		photon_map_width * photon_map_height * sizeof( cl_float4 )		/* size */,
 		NULL                               /* host_ptr */,
 		&status                                   /* errcode_ret */);
 
@@ -817,7 +817,7 @@ cl_int StartKernels(void)
 	cl_event events [1];
 
 	size_t globalThreads [] = { width, height };
-	size_t globalLightThreads [] = { width, height };
+	size_t globalLightThreads [] = { photon_map_width, photon_map_height };
 
 	size_t localThreads [] = { groupSizeX, groupSizeY };
 
@@ -959,7 +959,7 @@ cl_int StartKernels(void)
 		cout << "ERROR! clSetKernelArg #3 failed" << endl; exit(-1);
 	}
 
-	tempVector = Vector3D( -1 , 0 , 0 );
+	tempVector = Vector3D( 1 , 0 , 0 );
 	temp.s[0] = tempVector.X;
 	temp.s[1] = tempVector.Y;
 	temp.s[2] = tempVector.Z;
@@ -1002,12 +1002,17 @@ cl_int StartKernels(void)
 		NULL            /* event_wait_list */,
 		NULL            /* event */);
 
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clEnqueueNDRangeKernel failed" << endl; exit(-1);
+	}
+
 	status = clFinish(commandQueue);
 
-	//if(status != CL_SUCCESS)
-	//{
-	//	cout << "ERROR! clEnqueueNDRangeKernel failed" << endl; exit(-1);
-	//}
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clFinish failed" << endl; exit(-1);
+	}
 	/////////////////////////////////////
 	//////I wonder if there should be some kind of synchro between 2 kernels in the same command queue
 	////////////////////////////////////

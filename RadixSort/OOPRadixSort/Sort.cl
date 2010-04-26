@@ -14,7 +14,7 @@ __kernel void CountingSort(__global float4 * unsorted,
 	uint valueRangeOffset = gid * elementsPerThread;
 
 	// Clean buckets
-	for (int i = 0; i < RADIX_CARDINALITY; i++)
+	for (uint i = 0; i < 256; i++)
 	{
 		buckets[gid * RADIX_CARDINALITY + i] = 0;
 	}
@@ -42,7 +42,9 @@ __kernel void CountingSort(__global float4 * unsorted,
 
 		// inc bucket with value = radix value
 		// buckets are private for each thread
+		//buckets[256 * gid + bucketId] = 1;
 
+		//buckets[threadsQuan * bucketId + gid] += 1;
 		buckets[threadsQuan * bucketId + gid] += 1;
 	}
 }

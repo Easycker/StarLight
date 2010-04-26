@@ -131,7 +131,7 @@ void oclPrintBuildLog(cl_device_id device, cl_program program)
 	cout << "ERROR! clBuildProgram failed" << endl; exit ( -1 );
 }
 
-void oclCheckError(cl_int errorCode)
+void oclCheckError(cl_int errorCode, const char * msg )
 {
 	static int count = 0;
 
@@ -140,6 +140,10 @@ void oclCheckError(cl_int errorCode)
 		cout << endl;
 		cout << "Error " << errorCode << " at " << count;
 		cout << endl;
+		if ( msg )
+		{
+			cout << msg << endl;
+		}
 		exit ( -1 );
 	}
 

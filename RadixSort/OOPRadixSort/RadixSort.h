@@ -31,6 +31,12 @@ public:
 		cl_int arraySize
 		);
 
+	void ReadBuffer (
+		cl_mem srcBuffer, 
+		void * dstBuffer, 
+		size_t size
+		);
+
 	~oclRadixSort( );
 
 private:
@@ -177,15 +183,72 @@ void oclRadixSort::StartSort(
 
 	m_ElementsPerThread = arraySize / m_maxWorkItemSize;
 
-	for ( int i = 0; i < 4*3; i++ )
+	// check!
+	cl_uint * hostBuckets = new cl_uint[ m_BucketsQuan ]; 
+
+	cl_uint * hostOffsets = new cl_uint[ m_BucketsQuan ]; 
+
+	ofstream file("log.txt");
+
+	for ( int i = 0; i < 1; i++ )
 	{
 		CountingSort( i );
-		BucketScan ( );
-		Permute ( i );
 
-		cl_mem temp = m_UnsortedArray;
-		m_UnsortedArray = m_SortedArray;
-		m_SortedArray = temp;
+		ReadBuffer( m_Buckets, hostBuckets, 512 * 256 * sizeof(cl_uint) );
+		cl_uint count = 0;
+		//for( cl_uint j = 0; j < 256; j++ )
+		//{
+		//	file << "Bucket: " << j << endl;
+		//	for ( cl_uint k = 0; k < m_CountingSortThreads; k++ )
+		//	{
+		//		file << hostBuckets[j*m_CountingSortThreads + k] << "\t";
+		//		count += hostBuckets[j*m_CountingSortThreads + k];
+		//	}
+		//	file << endl;
+		//}
+		count = 0;
+		//for ( cl_uint j = 0; j < 512; j++ )
+		//{
+		//	for ( cl_uint k = 0; k < 512; k++ )
+		//	{
+		//		if (hostBuckets[j] == hostBuckets[k] && j != k)
+		//		{
+		//			cout << endl << hostBuckets[j] << endl;
+		//			count ++;
+		//		}
+		//	}
+		//}
+
+		if (count == 0) cout << "no collisions" << endl;
+
+		for ( cl_uint j = 0; j < 512*256; j++ )
+		{
+			if (hostBuckets[j] != 0)
+			{
+				count ++;
+			}
+			if ( hostBuckets[j] >= 512 * 256 || hostBuckets[j] == -1)
+			{
+				cout << "ATT!!!" << hostBuckets[j] << endl;
+			}
+		}
+		cout << "AT ALL: " << count << endl;
+
+		BucketScan ( );
+
+		file <<endl << "__________________________________" << endl;
+		ReadBuffer( m_Offsets, hostOffsets, m_BucketsQuan * sizeof(cl_uint) );
+		for ( cl_uint j = 0; j < m_BucketsQuan; j++ )
+		{
+			file << hostOffsets[j] << "\t";
+		}
+		file.close();
+
+		//Permute ( i );
+
+		//cl_mem temp = m_UnsortedArray;
+		//m_UnsortedArray = m_SortedArray;
+		//m_SortedArray = temp;
 	}
 }
 
@@ -253,10 +316,10 @@ void oclRadixSort::CountingSort( cl_uint passNumber )
 		NULL                   /* event_wait_list */,
 		NULL                   /* event */
 		);
-	oclCheckError ( m_Status );
+	oclCheckError ( m_Status, "clEnqueueNDRangeKernel CountingSort" );
 
 	m_Status = clFinish ( m_commandQueue );
-	oclCheckError( m_Status );
+	oclCheckError( m_Status, "clFinish CountingSort" );
 }
 
 
@@ -323,10 +386,10 @@ void oclRadixSort::BucketScan ( )
 		NULL                 /* event_wait_list */,
 		NULL                 /* event */ 
 		);
-	oclCheckError ( m_Status );
+	oclCheckError ( m_Status, "clEnqueueNDRangeKernel BucketScan" );
 
 	m_Status = clFinish ( m_commandQueue );
-	oclCheckError( m_Status );
+	oclCheckError( m_Status, "clFinish BucketScan" );
 }
 
 void oclRadixSort::Permute ( cl_uint passNumber )
@@ -401,10 +464,38 @@ void oclRadixSort::Permute ( cl_uint passNumber )
 		NULL              /* event_wait_list */,
 		NULL              /* event */ 
 		);
-	oclCheckError ( m_Status );
+	oclCheckError ( m_Status, "clEnqueueNDRangeKernel Permute" );
 
 	m_Status = clFinish ( m_commandQueue );
-	oclCheckError ( m_Status );
+	oclCheckError ( m_Status, "clFinish Permute" );
+}
+
+void oclRadixSort::ReadBuffer (
+				 cl_mem srcBuffer, 
+				 void * dstBuffer, 
+				 size_t size
+				 )
+{
+	cl_event events [1];
+
+	m_Status = clEnqueueReadBuffer (
+		m_commandQueue                           /* command_queue */,
+		srcBuffer                                /* buffer */,
+		CL_TRUE                                  /* blocking_read */,
+		0                                        /* offset */,
+		size                                     /* cb */,
+		dstBuffer                                /* ptr */,
+		0                                        /* num_events_in_wait_list */,
+		NULL                                     /* event_wait_list */,
+		&events [0]                              /* event */ 
+	);
+	oclCheckError( m_Status, "clEnqueueReadBuffer" );
+
+	m_Status = clWaitForEvents (
+		1             /* num_events */,
+		events        /* event_list */ 
+		);
+	oclCheckError ( m_Status, "clWaitForEvents at ReadBuffer" );
 }
 
 char * LoadFile ( const char * path, int *outLength )

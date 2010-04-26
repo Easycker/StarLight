@@ -1,6 +1,6 @@
 #pragma once
 
-void oclCheckError(cl_int errorCode);
+void oclCheckError(cl_int errorCode, const char * msg = NULL);
 
 void oclPrintBuildLog(cl_device_id device, cl_program program);
 

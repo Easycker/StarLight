@@ -103,14 +103,14 @@ int main ( )
 
 	clReleaseEvent ( events [0] );
 
-	for ( cl_uint i = 0; i < arraySize; i++ )
-	{
-		cout << unsortedArray[ i*4 + 0 ] << "\t";
-		cout << unsortedArray[ i*4 + 1 ] << "\t";
-		cout << unsortedArray[ i*4 + 2 ] << "\t";
-		cout << unsortedArray[ i*4 + 3 ] << "\t";
-		cout << endl;
-	}
+	//for ( cl_uint i = 0; i < arraySize; i++ )
+	//{
+	//	cout << unsortedArray[ i*4 + 0 ] << "\t";
+	//	cout << unsortedArray[ i*4 + 1 ] << "\t";
+	//	cout << unsortedArray[ i*4 + 2 ] << "\t";
+	//	cout << unsortedArray[ i*4 + 3 ] << "\t";
+	//	cout << endl;
+	//}
 
 	delete[] unsortedArray;
 }

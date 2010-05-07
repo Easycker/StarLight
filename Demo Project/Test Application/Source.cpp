@@ -22,6 +22,7 @@
 #include <fstream>
 
 #include <conio.h>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -51,7 +52,9 @@ GLuint openGLBuffer;
 
 int width = 512, height = 512, mode = GLFW_WINDOW;
 
-int photon_map_width = 32 , photon_map_height = 32;
+int photon_map_width = 256 , photon_map_height = 256;
+
+int voxel_count = 200;
 
 // Sphere position(only for test)
 
@@ -60,9 +63,15 @@ size_t groupSizeX = 8;										/* Work-Group size(for CPU = 1) */
 size_t groupSizeY = 8;
 //-----------------------------------------------------------------------------------------------------------
 
-cl_mem clMemTexture;	
+struct clPhotonMapType
+{
+	cl_float4 point;
+	cl_uint4 voxel;
+};
 
+cl_mem clMemTexture;	
 cl_mem clMemPhotonMap;
+cl_mem clMemVoxelData;
 
 cl_context context;											/* CL context */
 
@@ -71,8 +80,9 @@ cl_device_id device;										/* CL device */
 cl_program program;											/* CL program */
 
 cl_kernel kernelViewPass;									/* CL kernel */
-
 cl_kernel kernelLightPass;
+cl_kernel kernelClean;
+cl_kernel kernelVoxelSetup;
 
 cl_command_queue commandQueue;								/* CL command queue */
 
@@ -93,6 +103,25 @@ size_t kernelWorkGroupSize;									/* Group size returned by kernel */
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           FUNCTIONS                                           //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int ComparePoints( const void * a , const void* b )
+{
+	clPhotonMapType pa = *((clPhotonMapType*)a);
+	clPhotonMapType pb = *((clPhotonMapType*)b);
+	if( pa.voxel.s[ 0 ] > pb.voxel.s[ 0 ] )
+		return 1;
+	if( pa.voxel.s[ 0 ] < pb.voxel.s[ 0 ] )
+		return -1;
+	if( pa.voxel.s[ 1 ] > pb.voxel.s[ 1 ] )
+		return 1;
+	if( pa.voxel.s[ 1 ] < pb.voxel.s[ 1 ] )
+		return -1;
+	if( pa.voxel.s[ 2 ] > pb.voxel.s[ 2 ] )
+		return 1;
+	if( pa.voxel.s[ 2 ] < pb.voxel.s[ 2 ] )
+		return -1;
+	return 0;
+}
 
 void MouseMove(int x, int y)
 {
@@ -556,7 +585,7 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 	clMemPhotonMap = clCreateBuffer(
 		context                                   /* context */,
 		CL_MEM_READ_WRITE							/* flags */,
-		photon_map_width * photon_map_height * sizeof( cl_float4 )		/* size */,
+		photon_map_width * photon_map_height * sizeof( clPhotonMapType )		/* size */,
 		NULL                               /* host_ptr */,
 		&status                                   /* errcode_ret */);
 
@@ -564,6 +593,19 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 	{
 		cout << "ERROR! clCreateBuffer failed" << endl; exit(-1);
 	}
+
+	clMemVoxelData = clCreateBuffer(
+		context                                   /* context */,
+		CL_MEM_READ_WRITE							/* flags */,
+		voxel_count*voxel_count*voxel_count*2* sizeof( cl_uint )		/* size */,
+		NULL                               /* host_ptr */,
+		&status                                   /* errcode_ret */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clCreateBuffer failed" << endl; exit(-1);
+	}
+
 	/*
 	* Create a CL program using the kernel source.
 	*/
@@ -634,8 +676,6 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 
 		cout << buildLog << endl;
 
-		cout << endl << endl << endl << source;
-
 		free(buildLog);
 
 		_getch();
@@ -656,6 +696,24 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 
 	kernelLightPass = clCreateKernel(program       /* program */,
 		"LightPass"   /* kernel_name */,
+		&status       /* errcode_ret */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clCreateKernel failed" << endl; exit(-1);
+	}
+
+	kernelClean  = clCreateKernel(program       /* program */,
+		"VoxelClean"   /* kernel_name */,
+		&status       /* errcode_ret */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clCreateKernel failed" << endl; exit(-1);
+	}
+
+	kernelVoxelSetup  = clCreateKernel(program       /* program */,
+		"SetupVoxels"   /* kernel_name */,
 		&status       /* errcode_ret */);
 
 	if(status != CL_SUCCESS)
@@ -730,6 +788,49 @@ cl_int SetupKernels(void)
 	*/
 
 	status = clSetKernelArg(
+		kernelClean                   /* kernel */,
+		0                        /* arg_index */,
+		sizeof(cl_mem)        /* arg_size */,
+		(void *) &clMemVoxelData /* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
+	}
+
+	status = clSetKernelArg(
+		kernelVoxelSetup                   /* kernel */,
+		1                        /* arg_index */,
+		sizeof(cl_mem)        /* arg_size */,
+		(void *) &clMemVoxelData /* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
+	}
+	status = clSetKernelArg(
+		kernelViewPass                   /* kernel */,
+		7                        /* arg_index */,
+		sizeof(cl_mem)        /* arg_size */,
+		(void *) &clMemVoxelData /* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
+	}
+
+	status = clSetKernelArg(
+		kernelVoxelSetup                   /* kernel */,
+		0                        /* arg_index */,
+		sizeof(cl_mem)        /* arg_size */,
+		(void *) &clMemPhotonMap /* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
+	}
+
+	status = clSetKernelArg(
 		kernelViewPass                   /* kernel */,
 		0                        /* arg_index */,
 		sizeof(cl_mem)        /* arg_size */,
@@ -739,6 +840,7 @@ cl_int SetupKernels(void)
 	{
 		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
 	}
+
 	status = clSetKernelArg(
 		kernelViewPass                   /* kernel */,
 		6                        /* arg_index */,
@@ -911,7 +1013,7 @@ cl_int StartKernels(void)
 	//////here you can SetKernelArgs for LightPass
 ///////////////////////////////////////////
 
-	tempVector = Vector3D( -100 , 0 , 0 );
+	tempVector = Vector3D( -25 , 0 , 0 );
 	temp.s[0] = tempVector.X;
 	temp.s[1] = tempVector.Y;
 	temp.s[2] = tempVector.Z;
@@ -1009,10 +1111,77 @@ cl_int StartKernels(void)
 
 	status = clFinish(commandQueue);
 
+	clPhotonMapType* photonMap = new clPhotonMapType[ photon_map_width * photon_map_height ];
+
+	status = clEnqueueReadBuffer( commandQueue ,
+								  clMemPhotonMap ,
+								  true,
+								  0,
+								  photon_map_width * photon_map_height * sizeof( clPhotonMapType ),
+								  photonMap,
+								  0,
+								  NULL,
+								  NULL );
+
 	if(status != CL_SUCCESS)
 	{
 		cout << "ERROR! clFinish failed" << endl; exit(-1);
 	}
+
+	clFinish( commandQueue );
+
+	qsort( photonMap , photon_map_width * photon_map_height , sizeof( clPhotonMapType ) , ComparePoints );
+
+	status = clEnqueueWriteBuffer( commandQueue ,
+								  clMemPhotonMap ,
+								  true,
+								  0,
+								  photon_map_width * photon_map_height * sizeof( clPhotonMapType ),
+								  photonMap,
+								  0,
+								  NULL,
+								  NULL );
+	clFinish( commandQueue );
+	delete[] photonMap;
+
+	size_t voxel_count[] = { 200 , 200 , 50 }; 
+	size_t voxel_groups[] = { 8 , 8 , 1 }; 
+
+	status = clEnqueueNDRangeKernel(
+		commandQueue    /* command_queue */,
+		kernelClean          /* kernel */,
+		3               /* work_dim */,
+		NULL            /* global_work_offset */,
+		voxel_count   /* global_work_size */,
+		voxel_groups    /* local_work_size */,
+		0               /* num_events_in_wait_list */,
+		NULL            /* event_wait_list */,
+		NULL            /* event */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clEnqueueNDRangeKernel failed" << endl; exit(-1);
+	}
+
+	clFinish( commandQueue );
+
+
+	status = clEnqueueNDRangeKernel(
+		commandQueue    /* command_queue */,
+		kernelVoxelSetup          /* kernel */,////////////////values in [] should be discussed
+		2              /* work_dim */,
+		NULL            /* global_work_offset */,
+		globalLightThreads   /* global_work_size */,
+		localThreads    /* local_work_size */,
+		0               /* num_events_in_wait_list */,
+		NULL            /* event_wait_list */,
+		NULL            /* event */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clEnqueueNDRangeKernel failed" << endl; exit(-1);
+	}
+
 	/////////////////////////////////////
 	//////I wonder if there should be some kind of synchro between 2 kernels in the same command queue
 	////////////////////////////////////

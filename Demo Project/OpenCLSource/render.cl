@@ -1,6 +1,6 @@
 #define DELTA 0.3f
 
-#define PHOTON_MAP_SIZE 1024
+#define PHOTON_MAP_SIZE 256*256
 
 /////////////////////////////////////////////////////////////
 
@@ -16,15 +16,21 @@ typedef struct _SRay
 
 }SRay, *PSRay;
 
+typedef struct _PhotonMapType
+{
+	float4 point;
+	uint4 voxel;
+}PhotonMapType;
+
 /////////////////////////////////////////////////////////////
 
 #define PLAIN_NORMAL (float4)(-1.0F, 0.0F, 0.0F, 0.0F)
 #define PLAIN_X	     (float4)(0.0F, 1.0F, 0.0F, 0.0F)
 #define PLAIN_Y	     (float4)(0.0F, 0.0F, 1.0F, 0.0F)
-#define PLAIN_MIN_X  -50.0F
-#define PLAIN_MAX_X   50.0F
-#define PLAIN_MIN_Y  -50.0F
-#define PLAIN_MAX_Y   50.0F
+#define PLAIN_MIN_X  -20.0F
+#define PLAIN_MAX_X   20.0F
+#define PLAIN_MIN_Y  -20.0F
+#define PLAIN_MAX_Y   20.0F
 
 /////////////////////////////////////////////////////////////
 
@@ -264,7 +270,43 @@ bool RaytraceStep(PSRay pRay,
 	
 }
 
-float4 Raytrace(PSRay pRay, const float4 Position , __global float4* photonMap )
+#define MIN_POINT (float4)( -25.0F , -25.0F , -25.0F , 0.0F )
+#define MAX_POINT (float4)( 25.0F , 25.0F , 25.0F , 0.0F )
+
+#define MAX_VOXEL 200
+
+#define PHOTON_RADIUS 0.25F
+
+uint4 GetVoxel( float4 point )
+{
+	point -= MIN_POINT;
+	point /= PHOTON_RADIUS * 2;
+	uint4 ret = (uint4)( 0 , 0 , 0 , 0 );
+	ret.x = round( point.x );
+	ret.y = round( point.y );
+	ret.z = round( point.z );
+	return ret;
+}
+uint GetVoxelIndex( uint x , uint y , uint z )
+{
+	return ( ( x * MAX_VOXEL + y ) * MAX_VOXEL + z ) * 2;
+}
+
+float SummPhotons( float4 point , __global PhotonMapType* photonMap , uint firstIndex , uint lastIndex )
+{
+
+	float ret = 0.0F;
+	for( int j = firstIndex ; j < lastIndex ; j++ )
+	{
+		float4 tmp = photonMap[ j ].point - point;
+		tmp.w = 0;
+		float range = dot( tmp , tmp );
+		ret += max( 0.0F , PHOTON_RADIUS - range ); 
+	}
+	return ret;
+}
+
+float4 Raytrace(PSRay pRay, const float4 Position , __global PhotonMapType* photonMap , __global uint* voxelData  )
 {
 	float4 color;
 	float4 ret_color = (float4)(0.0F, 0.0F, 0.0F, 0.0F);
@@ -283,16 +325,18 @@ float4 Raytrace(PSRay pRay, const float4 Position , __global float4* photonMap )
 		{
 			float photon_mul = 0.0F;
 	
-			for( int j = 0 ; j < PHOTON_MAP_SIZE ; j++ )
+			float4 point = new_ray.Origin;
+			uint4 voxel = GetVoxel( point );
+			
+			for( int x = voxel.x - 1 ; x <= voxel.x + 1 ; x++ )
+			for( int y = voxel.y - 1 ; y <= voxel.y + 1 ; y++ )
+			for( int z = voxel.z - 1 ; z <= voxel.z + 1 ; z++ )
 			{
-				
-				float4 tmp = photonMap[ j ] - new_ray.Origin;
-				tmp.w = 0;
-				float range = dot( tmp , tmp );
-				photon_mul += max( 0.0F , 10.0F - range ); 
+				uint index = GetVoxelIndex( x , y , z );
+				photon_mul += SummPhotons( point , photonMap , voxelData[ index ] , voxelData[ index + 1 ] );
 			}
 			
-			ret_color += (float4)( 0.0F , 0.1F , 0.0F , 0.0F ) * photon_mul ;
+			ret_color += (float4)( 0.02F , 0.02F , 0.02F , 0.02F ) * photon_mul ;
 			
 			break;
 		}
@@ -326,8 +370,33 @@ float4 ForwardRaytrace(PSRay pRay, const float4 Position)
 	return (float4)( INFINITY,INFINITY,INFINITY, 0.0F );
 }
 
+__kernel void VoxelClean( __global uint4* voxelData )
+{
+	size_t index = ( get_global_size(1)*get_global_id(2) + get_global_id( 1 ) ) * get_global_size( 0 ) + get_global_id(0);
+	voxelData[ index * 2 ] = (uint4)MAX_VOXEL;
+	voxelData[ index * 2 + 1 ] = (uint4)MAX_VOXEL;
+}
+
+__kernel void SetupVoxels( __global PhotonMapType* photonMap , __global uint* voxelData )
+{
+
+	int index = get_global_size(0) * get_global_id(1) + get_global_id(0);
+	uint4 curr_voxel = photonMap[ index ].voxel;
+
+	if( curr_voxel.x >= MAX_VOXEL )
+		return;
+	
+	uint4 prev_voxel = photonMap[ index>0 ? ( index - 1 ) : 0 ].voxel;
+	uint4 next_voxel = photonMap[ ( index<PHOTON_MAP_SIZE - 1 ) ? ( index + 1 ) : 0 ].voxel;
+
+	if( index == 0 || prev_voxel.z != curr_voxel.z || prev_voxel.y != curr_voxel.y || prev_voxel.x != curr_voxel.x )
+		voxelData[ 2 * ( ( MAX_VOXEL * curr_voxel.x + curr_voxel.y ) * MAX_VOXEL + curr_voxel.z ) ] = index;
+	if( index == PHOTON_MAP_SIZE - 1 || next_voxel.z != curr_voxel.z || next_voxel.y != curr_voxel.y || next_voxel.x != curr_voxel.x )
+		voxelData[ 2 * ( ( MAX_VOXEL * curr_voxel.x + curr_voxel.y ) * MAX_VOXEL + curr_voxel.z ) + 1 ] = index + 1;
+} 
+
 //OpenCL kernels
-__kernel void LightPass(__global float4* photonMap,
+__kernel void LightPass(__global PhotonMapType* photonMap,
 			        const float4 Position,
 				    const float4 Side,
 				    const float4 Up,			//add or remove any args
@@ -342,8 +411,10 @@ __kernel void LightPass(__global float4* photonMap,
 				 Up,
 				 View,
 				 Scale);
-				 
-	photonMap[ get_global_size(0) * get_global_id(1) + get_global_id(0) ] = ForwardRaytrace(&ray, Position);
+	size_t index = get_global_size(0) * get_global_id(1) + get_global_id(0);
+	float4 point = 	ForwardRaytrace(&ray, Position); 
+	photonMap[ index ].point = point;
+	photonMap[ index ].voxel = GetVoxel( point );
 }
 __kernel void ViewPass(
 #ifdef USE_TEXTURE
@@ -356,7 +427,8 @@ __kernel void ViewPass(
 				    const float4 Up,
 				    const float4 View,
 				    const float2 Scale,
-				    __global float4* photonMap
+				    __global PhotonMapType* photonMap,
+				    __global uint* voxelData
 					)
 {
 	__private SRay ray;
@@ -368,8 +440,8 @@ __kernel void ViewPass(
 				 Scale);
 
 #ifdef USE_TEXTURE
-	write_imagef(texture,(int2)(get_global_id(0), get_global_id(1)), Raytrace(&ray, Position , photonMap ));
+	write_imagef(texture,(int2)(get_global_id(0), get_global_id(1)), Raytrace(&ray, Position , photonMap , voxelData ));
 #else
-	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace(&ray, Position, photonMap ));
+	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace(&ray, Position, photonMap , voxelData));
 #endif
 }

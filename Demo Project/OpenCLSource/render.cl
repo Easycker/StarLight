@@ -1,6 +1,6 @@
 #define DELTA 0.3f
 
-#define PHOTON_MAP_SIZE 256*256
+#define PHOTON_MAP_SIZE 512*512
 
 /////////////////////////////////////////////////////////////
 
@@ -39,17 +39,7 @@ typedef struct _PhotonMapType
 
 /////////////////////////////////////////////////////////////
 
-#define K_A 0.2F
-
-#define K_D 0.8F
-
-#define K_S 0.8F
-
-#define P 64.0F
-
-/////////////////////////////////////////////////////////////
-
-#define LIGHT_POSITION (float4)(-100.0F, 0.0F, 0.0F, 0.0F)
+#define LIGHT_POSITION (float4)(-25.0F, 0.0F, 0.0F, 0.0F)
 
 /////////////////////////////////////////////////////////////
 
@@ -169,10 +159,12 @@ float4 reflect(float4 vec, float4 normal)
 	return vec - normal * 2 * dot(vec, normal);
 }
 
+#define P 64.0F
+
 float4 Phong(float4 point,
 			  float4 normal,
 			  float4 color,
-			  __constant float4 Position)
+			  __constant float4 Position , float ka , float kd , float ks )
 {
 	float4 Unit  = (float4)(1.0F, 1.0F, 1.0F, 1.0F);
 
@@ -185,7 +177,7 @@ float4 Phong(float4 point,
 
 	float specular = native_powr(max(dot(reflectVec, view), 0.0F), P);
 
-	return K_A * Unit + diffuse * (K_D * color + K_S * specular * Unit);
+	return ka * Unit + diffuse * (kd * color + ks * specular * Unit);
 }
 
 float4 Refract(float4 incoming_ray,
@@ -208,6 +200,14 @@ float4 Refract(float4 incoming_ray,
 
 	return n * incoming_ray - (n * cosi + sqrt(1.0 - sin2)) * normal;
 }
+
+#define PLAIN_K_A 0.2F
+#define PLAIN_K_D 0.8F
+#define PLAIN_K_S 0.8F
+
+#define SPHERE_K_A 0.2F
+#define SPHERE_K_D 0.2F
+#define SPHERE_K_S 0.8F
 
 bool RaytraceStep(PSRay pRay,
 				  const float4 Position,
@@ -236,10 +236,10 @@ bool RaytraceStep(PSRay pRay,
 	if(sp_time < pl_time)
 	{
 	
-		*color	   =(float4)(0.0F, 0.0F, 0.0F, 0.0F); 
-		*color_mul = 1.0F;
-		
 		float4 point = pRay->Origin + sp_time * pRay->Direction;
+	
+		*color	   = Phong(point, sp_normal, sp_color, Position , SPHERE_K_A , SPHERE_K_D , SPHERE_K_S );
+		*color_mul = 0.8F;
 		
 		new_ray->Origin = point;
 		new_ray->Direction = Refract(normalize(pRay->Direction), sp_normal, dot(sp_normal, point - SPHERE_CENTER) < 0.0F);
@@ -257,7 +257,7 @@ bool RaytraceStep(PSRay pRay,
 		new_ray->Origin = point;
 		new_ray->Origin.w = 0;
 		
-		*color = Phong(point, pl_normal, pl_color, Position);
+		*color = Phong(point, pl_normal, pl_color, Position , PLAIN_K_A , PLAIN_K_D , PLAIN_K_S );
 		
 		return false;	
 	}
@@ -292,13 +292,17 @@ uint GetVoxelIndex( uint x , uint y , uint z )
 	return ( ( x * MAX_VOXEL + y ) * MAX_VOXEL + z ) * 2;
 }
 
-float SummPhotons( float4 point , __global PhotonMapType* photonMap , uint firstIndex , uint lastIndex )
+float SummPhotons( float4 point , __global __read_only image2d_t photonImage , uint firstIndex , uint lastIndex )
 {
 
 	float ret = 0.0F;
+	
+	const sampler_t photonSampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
+	
 	for( int j = firstIndex ; j < lastIndex ; j++ )
 	{
-		float4 tmp = photonMap[ j ].point - point;
+		float4 photonPoint = read_imagef( photonImage , photonSampler , (int2)( j % 512 , j / 512 ) ); 
+		float4 tmp = photonPoint - point;
 		tmp.w = 0;
 		float range = dot( tmp , tmp );
 		ret += max( 0.0F , PHOTON_RADIUS - range ); 
@@ -306,7 +310,7 @@ float SummPhotons( float4 point , __global PhotonMapType* photonMap , uint first
 	return ret;
 }
 
-float4 Raytrace(PSRay pRay, const float4 Position , __global PhotonMapType* photonMap , __global uint* voxelData  )
+float4 Raytrace(PSRay pRay, const float4 Position , __global PhotonMapType* photonMap , __global uint2* voxelData , __global __read_only image2d_t photonImage  )
 {
 	float4 color;
 	float4 ret_color = (float4)(0.0F, 0.0F, 0.0F, 0.0F);
@@ -333,10 +337,11 @@ float4 Raytrace(PSRay pRay, const float4 Position , __global PhotonMapType* phot
 			for( int z = voxel.z - 1 ; z <= voxel.z + 1 ; z++ )
 			{
 				uint index = GetVoxelIndex( x , y , z );
-				photon_mul += SummPhotons( point , photonMap , voxelData[ index ] , voxelData[ index + 1 ] );
+				uint2 voxel = voxelData[ index / 2 ];
+				photon_mul += SummPhotons( point , photonImage , voxel.x , voxel.y );
 			}
 			
-			ret_color += (float4)( 0.02F , 0.02F , 0.02F , 0.02F ) * photon_mul ;
+			ret_color += (float4)( 0.01F , 0.01F , 0.01F , 0.0F ) * photon_mul ;
 			
 			break;
 		}
@@ -428,7 +433,8 @@ __kernel void ViewPass(
 				    const float4 View,
 				    const float2 Scale,
 				    __global PhotonMapType* photonMap,
-				    __global uint* voxelData
+				    __global uint2* voxelData,
+				    __global __read_only image2d_t photonImage
 					)
 {
 	__private SRay ray;
@@ -440,8 +446,8 @@ __kernel void ViewPass(
 				 Scale);
 
 #ifdef USE_TEXTURE
-	write_imagef(texture,(int2)(get_global_id(0), get_global_id(1)), Raytrace(&ray, Position , photonMap , voxelData ));
+	write_imagef(texture,(int2)(get_global_id(0), get_global_id(1)), Raytrace(&ray, Position , photonMap , voxelData , photonImage ));
 #else
-	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace(&ray, Position, photonMap , voxelData));
+	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace(&ray, Position, photonMap , voxelData , photonImage ));
 #endif
 }

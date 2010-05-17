@@ -71,7 +71,6 @@ struct clPhotonMapType
 
 cl_mem clMemTexture;	
 cl_mem clMemPhotonMap;
-cl_mem clMemPhotonMapImage;
 cl_mem clMemVoxelData;
 
 cl_context context;											/* CL context */
@@ -588,21 +587,7 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 		CL_MEM_READ_WRITE							/* flags */,
 		photon_map_width * photon_map_height * sizeof( clPhotonMapType )		/* size */,
 		NULL                               /* host_ptr */,
-		&status          /* errcode_ret */);
-
-	cl_image_format photon_map_format;
-	photon_map_format.image_channel_order = CL_RGBA;
-	photon_map_format.image_channel_data_type = CL_FLOAT;
-
-	clMemPhotonMapImage = clCreateImage2D( 
-		context,
-		CL_MEM_READ_WRITE,
-		&photon_map_format,
-		photon_map_width,
-		photon_map_height,
-		0,
-		NULL,
-		NULL );
+		&status                                   /* errcode_ret */);
 
 	if(status != CL_SUCCESS)
 	{
@@ -781,6 +766,19 @@ cl_int ReleaseOpenCL(void)
 	{
 		return result;
 	}
+
+	result = clReleaseMemObject(clMemPhotonMap);
+	if(result != CL_SUCCESS)
+	{
+		return result;
+	}
+
+	result = clReleaseMemObject(clMemVoxelData);
+	if(result != CL_SUCCESS)
+	{
+		return result;
+	}
+
 	result = clReleaseCommandQueue(commandQueue);
 	if(result != CL_SUCCESS)
 	{
@@ -828,17 +826,6 @@ cl_int SetupKernels(void)
 		7                        /* arg_index */,
 		sizeof(cl_mem)        /* arg_size */,
 		(void *) &clMemVoxelData /* arg_value */);
-
-	if(status != CL_SUCCESS)
-	{
-		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
-	}
-
-	status = clSetKernelArg(
-		kernelViewPass                   /* kernel */,
-		8                       /* arg_index */,
-		sizeof(cl_mem)        /* arg_size */,
-		(void *) &clMemPhotonMapImage /* arg_value */);
 
 	if(status != CL_SUCCESS)
 	{
@@ -1055,7 +1042,7 @@ cl_int StartKernels(void)
 		cout << "ERROR! clSetKernelArg #1 failed" << endl; exit(-1);
 	}
 
-	tempVector = Vector3D( 0 , 1 , 0 );
+	tempVector = Vector3D( 0 , 0.8 , 0 );
 	temp.s[0] = tempVector.X;
 	temp.s[1] = tempVector.Y;
 	temp.s[2] = tempVector.Z;
@@ -1071,7 +1058,7 @@ cl_int StartKernels(void)
 		cout << "ERROR! clSetKernelArg #2 failed" << endl; exit(-1);
 	}
 
-	tempVector = Vector3D( 0 , 0 , 1 );
+	tempVector = Vector3D( 0 , 0 , 0.8 );
 	temp.s[0] = tempVector.X;
 	temp.s[1] = tempVector.Y;
 	temp.s[2] = tempVector.Z;
@@ -1118,6 +1105,8 @@ cl_int StartKernels(void)
 		cout << "ERROR! clSetKernelArg #5 failed" << endl; exit(-1);
 	}
 
+	ofstream out( "output.txt" );
+
 	double begin_time = glfwGetTime();
 
 ///////////////////////////////////////////
@@ -1139,7 +1128,8 @@ cl_int StartKernels(void)
 
 	status = clFinish(commandQueue);
 
-	double light_time = glfwGetTime(); 
+	double light_time = glfwGetTime();
+	out << "Light time - " << light_time - begin_time << '\n';
 
 	clPhotonMapType* photonMap = new clPhotonMapType[ photon_map_width * photon_map_height ];
 
@@ -1160,31 +1150,13 @@ cl_int StartKernels(void)
 
 	clFinish( commandQueue );
 
-	double map_read_time = glfwGetTime();
+	double read_time = glfwGetTime();
+	out << "Read time - " << read_time - light_time << '\n';
 
 	qsort( photonMap , photon_map_width * photon_map_height , sizeof( clPhotonMapType ) , ComparePoints );
 
-	double sort_time = glfwGetTime(); 
-
-	cl_float4* photon_map_image = new cl_float4[ photon_map_width * photon_map_height ];
-	for( int i = 0 ; i < photon_map_width * photon_map_height ; i++ )
-		photon_map_image[ i ] = photonMap[ i ].point;
-
-	size_t origin[] = { 0 , 0 , 0 };
-	size_t region[] = { photon_map_width , photon_map_height , 1 };
-
-	status = clEnqueueWriteImage( 
-			commandQueue,
-			clMemPhotonMapImage,
-			true,
-			origin,
-			region,
-			0,
-			0,
-			photon_map_image,
-			0,
-			NULL,
-			NULL);
+	double sort_time = glfwGetTime();
+	out << "Sort time - " << sort_time - read_time << '\n';
 
 	status = clEnqueueWriteBuffer( commandQueue ,
 								  clMemPhotonMap ,
@@ -1197,9 +1169,31 @@ cl_int StartKernels(void)
 								  NULL );
 	clFinish( commandQueue );
 
-	double map_write_time = glfwGetTime();
+	double write_time = glfwGetTime();
+	out << "Write time - " << write_time - sort_time << '\n';
 
 	delete[] photonMap;
+
+	////size_t voxel_count[] = { 200 , 200 , 50 }; 
+	////size_t voxel_groups[] = { 8 , 8 , 1 }; 
+
+	////status = clEnqueueNDRangeKernel(
+	////	commandQueue    /* command_queue */,
+	////	kernelClean          /* kernel */,
+	////	3               /* work_dim */,
+	////	NULL            /* global_work_offset */,
+	////	voxel_count   /* global_work_size */,
+	////	voxel_groups    /* local_work_size */,
+	////	0               /* num_events_in_wait_list */,
+	////	NULL            /* event_wait_list */,
+	////	NULL            /* event */);
+
+	////if(status != CL_SUCCESS)
+	////{
+	////	cout << "ERROR! clEnqueueNDRangeKernel failed" << endl; exit(-1);
+	////}
+
+	////clFinish( commandQueue );
 
 	status = clEnqueueNDRangeKernel(
 		commandQueue    /* command_queue */,
@@ -1220,6 +1214,7 @@ cl_int StartKernels(void)
 	clFinish( commandQueue );
 
 	double setup_time = glfwGetTime();
+	out << "Setup time - " << setup_time - write_time << '\n';
 
 	/////////////////////////////////////
 	//////I wonder if there should be some kind of synchro between 2 kernels in the same command queue
@@ -1243,13 +1238,9 @@ cl_int StartKernels(void)
 	status = clFinish(commandQueue);
 
 	double view_time = glfwGetTime();
+	out << "View time - " << view_time - setup_time << '\n';
 
-	view_time -= setup_time;
-	setup_time -= map_write_time;
-	map_write_time -= sort_time;
-	sort_time -= map_read_time;
-	map_read_time -= light_time;
-	light_time -= begin_time;
+	out.flush();
 
 	if(status != CL_SUCCESS)
 	{
@@ -1288,18 +1279,6 @@ cl_int StartKernels(void)
 	clReleaseEvent(events [0]);
 
 #endif
-
-	ofstream out( "output.txt" );
-		view_time -= setup_time;
-
-	out << "light time - " << light_time << '\n';
-	out << "map read time - " << map_read_time << '\n';
-	out << "sort time - " << sort_time << '\n';
-	out << "map write time - " << map_write_time << '\n';
-	out << "setup time - " << setup_time << '\n';
-	out << "view time - " << view_time << '\n';
-
-	out.flush();
 
 	return CL_SUCCESS;
 }

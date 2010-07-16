@@ -32,7 +32,7 @@ using namespace Render;
 
 #ifdef NVIDIA
 
-	#define USE_TEXTURE
+	#define USE_TEXTURE_
 
 #endif
 
@@ -55,6 +55,10 @@ int width = 512, height = 512, mode = GLFW_WINDOW;
 int photon_map_width = 512 , photon_map_height = 512;
 
 int voxel_count = 200;
+
+cl_uint sortDescending = 0;
+
+cl_uint photon_map_size = photon_map_width * photon_map_height;
 
 // Sphere position(only for test)
 
@@ -83,6 +87,7 @@ cl_kernel kernelViewPass;									/* CL kernel */
 cl_kernel kernelLightPass;
 cl_kernel kernelClean;
 cl_kernel kernelVoxelSetup;
+cl_kernel kernelSort; 
 
 cl_command_queue commandQueue;								/* CL command queue */
 
@@ -209,7 +214,7 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 
 	cl_uint numPlatforms = 0;
 
-	char info [200];
+	char info [1024];
 
 	status = clGetPlatformIDs(0               /* num_entries */,
 		NULL            /* platforms */,    
@@ -721,6 +726,15 @@ cl_int SetupOpenCL(cl_device_type deviceType)
 		cout << "ERROR! clCreateKernel failed" << endl; exit(-1);
 	}
 
+	kernelSort  = clCreateKernel(program       /* program */,
+		"Sort"   /* kernel_name */,
+		&status       /* errcode_ret */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clCreateKernel failed" << endl; exit(-1);
+	}
+
 	return status;
 }
 cl_int ReleaseOpenCL(void)
@@ -869,6 +883,39 @@ cl_int SetupKernels(void)
 		kernelLightPass                   /* kernel */,
 		0                        /* arg_index */,
 		sizeof(cl_mem)        /* arg_size */,
+ 		(void *) &clMemPhotonMap /* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
+	}
+
+	status = clSetKernelArg(
+		kernelSort                   /* kernel */,
+		4                        /* arg_index */,
+		sizeof(cl_uint)        /* arg_size */,
+		(void *) &sortDescending /* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
+	}
+
+	status = clSetKernelArg(
+		kernelSort                   /* kernel */,
+		3                        /* arg_index */,
+		sizeof(cl_uint)        /* arg_size */,
+		(void *) &photon_map_size /* arg_value */);
+
+	if(status != CL_SUCCESS)
+	{
+		cout << "ERROR! clSetKernelArg #0 failed" << endl; exit(-1);
+	}
+
+	status = clSetKernelArg(
+		kernelSort                /* kernel */,
+		0                        /* arg_index */,
+		sizeof(cl_mem)           /* arg_size */,
 		(void *) &clMemPhotonMap /* arg_value */);
 
 	if(status != CL_SUCCESS)
@@ -1131,48 +1178,112 @@ cl_int StartKernels(void)
 	double light_time = glfwGetTime();
 	out << "Light time - " << light_time - begin_time << '\n';
 
-	clPhotonMapType* photonMap = new clPhotonMapType[ photon_map_width * photon_map_height ];
+	//clPhotonMapType* photonMap = new clPhotonMapType[ photon_map_width * photon_map_height ];
 
-	status = clEnqueueReadBuffer( commandQueue ,
-								  clMemPhotonMap ,
-								  true,
-								  0,
-								  photon_map_width * photon_map_height * sizeof( clPhotonMapType ),
-								  photonMap,
-								  0,
-								  NULL,
-								  NULL );
+	//status = clEnqueueReadBuffer( commandQueue ,
+	//							  clMemPhotonMap ,
+	//							  true,
+	//							  0,
+	//							  photon_map_width * photon_map_height * sizeof( clPhotonMapType ),
+	//							  photonMap,
+	//							  0,
+	//							  NULL,
+	//							  NULL );
 
-	if(status != CL_SUCCESS)
-	{
-		cout << "ERROR! clFinish failed" << endl; exit(-1);
-	}
+	//if(status != CL_SUCCESS)
+	//{
+	//	cout << "ERROR! clFinish failed" << endl; exit(-1);
+	//}
 
-	clFinish( commandQueue );
+	//clFinish( commandQueue );
 
-	double read_time = glfwGetTime();
-	out << "Read time - " << read_time - light_time << '\n';
+	//double read_time = glfwGetTime();
+	//out << "Read time - " << read_time - light_time << '\n';
 
-	qsort( photonMap , photon_map_width * photon_map_height , sizeof( clPhotonMapType ) , ComparePoints );
+	//qsort( photonMap , photon_map_width * photon_map_height , sizeof( clPhotonMapType ) , ComparePoints );
 
 	double sort_time = glfwGetTime();
-	out << "Sort time - " << sort_time - read_time << '\n';
 
-	status = clEnqueueWriteBuffer( commandQueue ,
-								  clMemPhotonMap ,
-								  true,
-								  0,
-								  photon_map_width * photon_map_height * sizeof( clPhotonMapType ),
-								  photonMap,
-								  0,
-								  NULL,
-								  NULL );
-	clFinish( commandQueue );
+	{
+		cl_uint temp;
+		cl_uint numStages = 0;
+
+		for ( temp = photon_map_size; temp > 1; temp >>= 1 )
+		{
+			++numStages;
+		}
+		
+		cl_uint stage;
+		cl_uint passOfStage;
+
+		for ( stage = 0; stage < numStages; ++stage )
+		{
+			status = clSetKernelArg(
+				kernelSort           /* kernel */,
+				1                    /* arg_index */,
+				sizeof(cl_uint)      /* arg_size */,
+				(void *) &stage      /* arg_value */
+				);
+
+			if(status != CL_SUCCESS)
+			{
+				cout << "ERROR! clSetKernelArg #4 failed" << endl; exit(-1);
+			}	
+
+			for ( passOfStage = 0; passOfStage < stage + 1; ++passOfStage )
+			{
+				status = clSetKernelArg(
+					kernelSort           /* kernel */,
+					2                    /* arg_index */,
+					sizeof(cl_uint)      /* arg_size */,
+					(void *) &passOfStage      /* arg_value */
+					);
+
+				if(status != CL_SUCCESS)
+				{
+					cout << "ERROR! clSetKernelArg #4 failed" << endl; exit(-1);
+				}	
+
+				size_t globalSortThreads[] = {photon_map_size/2};
+				status = clEnqueueNDRangeKernel(
+					commandQueue    /* command_queue */,
+					kernelSort      /* kernel */,////////////////values in [] should be discussed
+					1               /* work_dim */,
+					NULL               /* global_work_offset */,
+					globalSortThreads  /* global_work_size */,
+					localThreads    /* local_work_size */,
+					0               /* num_events_in_wait_list */,
+					NULL            /* event_wait_list */,
+					NULL            /* event */);
+
+				if(status != CL_SUCCESS)
+				{
+					cout << "ERROR! clEnqueueNDRangeKernel failed" << endl; exit(-1);
+				}
+
+			}
+		}
+
+	}
+
+
+	//out << "Sort time - " << sort_time - read_time << '\n';
+
+	//status = clEnqueueWriteBuffer( commandQueue ,
+	//							  clMemPhotonMap ,
+	//							  true,
+	//							  0,
+	//							  photon_map_width * photon_map_height * sizeof( clPhotonMapType ),
+	//							  photonMap,
+	//							  0,
+	//							  NULL,
+	//							  NULL );
+	//clFinish( commandQueue );
 
 	double write_time = glfwGetTime();
-	out << "Write time - " << write_time - sort_time << '\n';
+	//out << "Write time - " << write_time - sort_time << '\n';
 
-	delete[] photonMap;
+	//delete[] photonMap;
 
 	////size_t voxel_count[] = { 200 , 200 , 50 }; 
 	////size_t voxel_groups[] = { 8 , 8 , 1 }; 

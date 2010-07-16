@@ -5,7 +5,7 @@
 
 /////////////////////////////////////////////////////////////
 
-#define USE_TEXTURE
+#define USE_TEXTURE_
 
 /////////////////////////////////////////////////////////////
 
@@ -452,6 +452,51 @@ __kernel void ViewPass(
 #ifdef USE_TEXTURE
 	write_imagef(texture,(int2)(get_global_id(0), get_global_id(1)), Raytrace(&ray, Position , photonMap , voxelData ));
 #else
-	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace(&ray, Position, photonMap , voxelData));
+	texture[get_global_size(0) * get_global_id(1) + get_global_id(0)] = Raytrace(&ray, Position, photonMap , voxelData);
 #endif
+}
+
+__kernel 
+void Sort ( __global PhotonMapType * theArray,
+            const uint stage, 
+            const uint passOfStage,
+            const uint width,
+            const uint direction )
+{
+    uint sortIncreasing = direction;
+    uint threadId = get_global_id(0);
+    
+    uint pairDistance = 1 << (stage - passOfStage);
+    uint blockWidth   = 2 * pairDistance;
+
+    uint leftId = (threadId % pairDistance) 
+                   + (threadId / pairDistance) * blockWidth;
+
+    uint rightId = leftId + pairDistance;
+    
+    PhotonMapType leftVoxelElement = theArray[leftId];
+    PhotonMapType rightVoxelElement = theArray[rightId];
+
+	uint leftElement = leftVoxelElement.voxel.x * MAX_VOXEL + 
+						leftVoxelElement.voxel.y * MAX_VOXEL + 
+						leftVoxelElement.voxel.z;
+
+    uint rightElement =rightVoxelElement.voxel.x * MAX_VOXEL + 
+						rightVoxelElement.voxel.y * MAX_VOXEL + 
+						rightVoxelElement.voxel.z;
+    
+    uint sameDirectionBlockWidth = 1 << stage;
+    
+    sortIncreasing = ( threadId / sameDirectionBlockWidth ) % 2 == 1 ?
+        1 - sortIncreasing : sortIncreasing;
+
+
+    PhotonMapType greater = leftElement > rightElement ? leftVoxelElement : rightVoxelElement;
+
+    PhotonMapType lesser = leftElement > rightElement ? rightVoxelElement : leftVoxelElement;
+
+
+    theArray [leftId] = sortIncreasing ? lesser : greater;
+    
+    theArray [rightId] = sortIncreasing ? greater : lesser;
 }

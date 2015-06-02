@@ -1,0 +1,1 @@
+Real-time photon mapping implementation on graphics processing unit (GPU) using OpenCL.
